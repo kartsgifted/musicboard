@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root {
+    --bg: #EEF1EC;
+    --surface: #FFFFFF;
+    --ink: #1C2B2A;
+    --muted: #5E6B68;
+    --line: #D5DBD5;
+    --accent: #2F5D50;
+    --accent-soft: #E1EBE6;
+    --danger: #A23B2A;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    font-size: 16px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px 64px; }
+
+  header.board {
+    background: var(--accent); color: #fff;
+    padding: 44px 0 36px; margin-bottom: 28px;
+  }
+  header.board h1 { margin: 0; font-size: clamp(28px, 6vw, 40px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+  header.board p { margin: 10px 0 0; opacity: .82; font-size: 15px; }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; min-height: 40px; }
+  .count { color: var(--muted); font-size: 14px; }
+
+  .btn {
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 500;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.1); }
+  .btn.danger { color: var(--danger); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .link { background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+  .link.danger { color: var(--danger); }
+
+  /* 목록 */
+  ul.list { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: 12px; border: 1px solid var(--line); }
+  ul.list li + li { border-top: 1px solid var(--line); }
+  ul.list button {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: baseline;
+    width: 100%; text-align: left; background: none; border: 0; padding: 18px 20px; cursor: pointer;
+  }
+  ul.list button:hover .t { text-decoration: underline; text-underline-offset: 4px; }
+  .t { font-size: 17px; font-weight: 600; }
+  .meta { color: var(--muted); font-size: 14px; }
+  .cc { color: var(--accent); font-weight: 600; font-size: 14px; white-space: nowrap; }
+  .pin { display: inline-block; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 4px; margin-right: 8px; vertical-align: 2px; }
+  .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; padding: 48px 20px; text-align: center; color: var(--muted); }
+
+  /* 상세 */
+  article { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 28px 24px; }
+  article h2 { margin: 0 0 6px; font-size: 24px; line-height: 1.35; letter-spacing: -0.01em; }
+  article .body { white-space: pre-wrap; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .admin-actions { display: flex; gap: 8px; margin-top: 24px; }
+
+  section.comments { margin-top: 32px; }
+  section.comments h3 { font-size: 17px; margin: 0 0 12px; }
+  .c { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .c-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .c-name { font-weight: 600; }
+  .c-body { white-space: pre-wrap; margin-top: 4px; }
+  .c-head .link { margin-left: auto; }
+
+  form.cform { margin-top: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
+  .row { display: flex; gap: 10px; }
+  .row input { flex: 1; min-width: 0; }
+  input, textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fff; }
+  textarea { resize: vertical; min-height: 88px; }
+  .hint { font-size: 13px; color: var(--muted); }
+  .form-end { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+
+  /* 글쓰기 */
+  .editor { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: grid; gap: 14px; }
+  .editor textarea { min-height: 320px; }
+  label.check { display: flex; gap: 8px; align-items: center; font-size: 15px; }
+  label.check input { width: auto; }
+
+  footer { margin-top: 48px; text-align: center; }
+
+  dialog { border: 0; border-radius: 12px; padding: 24px; width: min(360px, 90vw); }
+  dialog::backdrop { background: rgba(28, 43, 42, .45); }
+  dialog h3 { margin: 0 0 14px; }
+  dialog .form-end { margin-top: 14px; justify-content: flex-end; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 15px;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast.show { opacity: 1; }
+  .toast.err { background: var(--danger); }
+  .loading { color: var(--muted); padding: 40px 0; text-align: center; }
+
+  @media (max-width: 520px) {
+    ul.list button { grid-template-columns: 1fr; }
+    article { padding: 22px 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<header class="board">
+  <div class="wrap" style="padding-bottom:0">
+    <h1><?= config.BOARD_TITLE ?></h1>
+    <p><?= config.BOARD_DESC ?></p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="view"><div class="loading">불러오는 중…</div></div>
+  <footer><button class="link" id="adminToggle">관리자 로그인</button></footer>
+</main>
+
+<dialog id="loginDlg">
+  <form method="dialog" id="loginForm">
+    <h3>관리자 로그인</h3>
+    <input type="password" id="adminPw" placeholder="관리자 비밀번호" autocomplete="current-password" required>
+    <div class="form-end">
+      <button type="button" class="btn" id="loginCancel">취소</button>
+      <button type="submit" class="btn primary">로그인</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  // 관리자 토큰은 메모리에만 보관 → 새로고침하면 다시 로그인
+  let adminToken = null;
+  let current = { view: 'list', postId: null };
+
+  const $ = (s) => document.querySelector(s);
+  const view = $('#view');
+
+  function api(fn, ...args) {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler((e) => reject(new Error((e && e.message || String(e)).replace(/^Error:\s*/, ''))))[fn](...args);
+    });
+  }
+
+  function el(tag, props = {}, ...children) {
+    const n = document.createElement(tag);
+    Object.entries(props).forEach(([k, v]) => {
+      if (k === 'class') n.className = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else if (v === true) n.setAttribute(k, '');
+      else if (v !== false && v != null) n.setAttribute(k, v);
+    });
+    children.flat().forEach((c) => c != null && n.append(c.nodeType ? c : document.createTextNode(c)));
+    return n;
+  }
+
+  let toastTimer;
+  function toast(msg, isErr) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isErr ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (t.className = 'toast'), 2600);
+  }
+
+  function fmt(s) { return s ? s.slice(0, 16).replace(/-/g, '.') : ''; }
+
+  function handleErr(e) {
+    toast(e.message, true);
+    if (/로그인이 만료/.test(e.message)) setAdmin(null);
+  }
+
+  function setAdmin(token) {
+    adminToken = token;
+    $('#adminToggle').textContent = token ? '관리자 로그아웃' : '관리자 로그인';
+    render();
+  }
+
+  /* ───── 목록 ───── */
+  async function showList() {
+    current = { view: 'list', postId: null };
+    view.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
+    try {
+      const posts = await api('getPosts');
+      if (current.view !== 'list') return;
+      const toolbar = el('div', { class: 'toolbar' },
+        el('span', { class: 'count' }, `전체 ${posts.length}개`),
+        adminToken ? el('button', { class: 'btn primary', onclick: () => showEditor() }, '글쓰기') : null
+      );
+      const body = posts.length
+        ? el('ul', { class: 'list' }, posts.map((p) =>
+            el('li', {}, el('button', { onclick: () => showPost(p.id) },
+              el('span', { class: 't' }, p.pinned ? el('span', { class: 'pin' }, '고정') : null, p.title),
+              el('span', { class: 'cc' }, p.commentCount ? `댓글 ${p.commentCount}` : ''),
+              el('span', { class: 'meta' }, fmt(p.createdAt))
+            ))))
+        : el('div', { class: 'empty' }, adminToken ? '아직 글이 없습니다. 첫 글을 작성해 보세요.' : '아직 등록된 글이 없습니다.');
+      view.replaceChildren(toolbar, body);
+    } catch (e) { handleErr(e); }
+  }
+
+  /* ───── 상세 + 댓글 ───── */
+  async function showPost(id, data) {
+    current = { view: 'post', postId: id };
+    if (!data) view.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
+    try {
+      const p = data || await api('getPost', id);
+      renderPost(p);
+      window.scrollTo(0, 0);
+    } catch (e) { handleErr(e); showList(); }
+  }
+
+  function renderPost(p) {
+    const back = el('div', { class: 'toolbar' }, el('button', { class: 'btn', onclick: showList }, '목록으로'));
+
+    const art = el('article', {},
+      el('h2', {}, p.pinned ? el('span', { class: 'pin' }, '고정') : null, p.title),
+      el('div', { class: 'meta' }, fmt(p.createdAt) + (p.updatedAt ? ` (수정 ${fmt(p.updatedAt)})` : '')),
+      el('div', { class: 'body' }, p.content),
+      adminToken ? el('div', { class: 'admin-actions' },
+        el('button', { class: 'btn', onclick: () => showEditor(p) }, '수정'),
+        el('button', { class: 'btn danger', onclick: () => removePost(p.id) }, '삭제')
+      ) : null
+    );
+
+    const list = p.comments.map((c) =>
+      el('div', { class: 'c' },
+        el('div', { class: 'c-head' },
+          el('span', { class: 'c-name' }, c.name),
+          el('span', { class: 'meta' }, fmt(c.createdAt)),
+          el('button', { class: 'link danger', onclick: () => removeComment(c.id) }, '삭제')
+        ),
+        el('div', { class: 'c-body' }, c.content)
+      ));
+
+    const form = el('form', { class: 'cform', onsubmit: (ev) => submitComment(ev, p.id) },
+      el('div', { class: 'row' },
+        el('input', { name: 'name', placeholder: '이름', maxlength: 20, required: true, autocomplete: 'name' }),
+        el('input', { name: 'pw', type: 'password', inputmode: 'numeric', pattern: '\\d{4}', maxlength: 4, placeholder: '비밀번호 4자리', required: true })
+      ),
+      el('textarea', { name: 'content', placeholder: '댓글을 입력하세요', maxlength: 1000, required: true }),
+      el('div', { class: 'form-end' },
+        el('span', { class: 'hint' }, '비밀번호는 내 댓글을 삭제할 때 필요합니다.'),
+        el('button', { class: 'btn primary', type: 'submit' }, '댓글 등록')
+      )
+    );
+
+    const sec = el('section', { class: 'comments' },
+      el('h3', {}, `댓글 ${p.comments.length}`),
+      list.length ? list : el('p', { class: 'meta' }, '첫 댓글을 남겨 보세요.'),
+      form
+    );
+
+    view.replaceChildren(back, art, sec);
+  }
+
+  async function submitComment(ev, postId) {
+    ev.preventDefault();
+    const f = ev.target;
+    const btn = f.querySelector('button[type=submit]');
+    btn.disabled = true;
+    try {
+      const name = f.elements['name'].value;
+      const p = await api('addComment', postId, name, f.elements['content'].value, f.elements['pw'].value);
+      renderPost(p);
+      document.querySelector('.cform [name=name]').value = name; // 이름은 유지
+      toast('댓글을 등록했습니다.');
+    } catch (e) { handleErr(e); btn.disabled = false; }
+  }
+
+  async function removeComment(id) {
+    try {
+      let p;
+      if (adminToken) {
+        if (!confirm('이 댓글을 삭제할까요?')) return;
+        p = await api('adminDeleteComment', adminToken, id);
+      } else {
+        const pw = prompt('댓글 작성 시 입력한 비밀번호 4자리를 입력하세요.');
+        if (!pw) return;
+        p = await api('deleteOwnComment', id, pw);
+      }
+      renderPost(p);
+      toast('댓글을 삭제했습니다.');
+    } catch (e) { handleErr(e); }
+  }
+
+  async function removePost(id) {
+    if (!confirm('이 글을 삭제할까요? 댓글도 함께 보이지 않게 됩니다.')) return;
+    try {
+      await api('deletePost', adminToken, id);
+      toast('글을 삭제했습니다.');
+      showList();
+    } catch (e) { handleErr(e); }
+  }
+
+  /* ───── 글쓰기 / 수정 (관리자) ───── */
+  function showEditor(p = null) {
+    current = { view: 'editor', postId: p && p.id };
+    const form = el('form', { class: 'editor', onsubmit: async (ev) => {
+        ev.preventDefault();
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+          const id = await api('savePost', adminToken, {
+            id: p && p.id, title: form.elements['title'].value, content: form.elements['content'].value, pinned: form.elements['pinned'].checked,
+          });
+          toast(p ? '글을 수정했습니다.' : '글을 등록했습니다.');
+          showPost(id);
+        } catch (e) { handleErr(e); btn.disabled = false; }
+      } },
+      el('input', { name: 'title', placeholder: '제목', maxlength: 100, required: true }),
+      el('textarea', { name: 'content', placeholder: '내용', maxlength: 10000, required: true }),
+      el('label', { class: 'check' }, el('input', { type: 'checkbox', name: 'pinned' }), '목록 맨 위에 고정'),
+      el('div', { class: 'form-end' },
+        el('button', { type: 'button', class: 'btn', onclick: () => (p ? showPost(p.id) : showList()) }, '취소'),
+        el('button', { type: 'submit', class: 'btn primary' }, p ? '수정 완료' : '등록')
+      )
+    );
+    if (p) { form.elements['title'].value = p.title; form.elements['content'].value = p.content; form.elements['pinned'].checked = p.pinned; }
+    view.replaceChildren(el('div', { class: 'toolbar' }, el('strong', {}, p ? '글 수정' : '새 글 작성')), form);
+    form.elements['title'].focus();
+  }
+
+  function render() {
+    if (current.view === 'post') showPost(current.postId);
+    else if (current.view === 'list') showList();
+    else if (!adminToken) showList();
+  }
+
+  /* ───── 관리자 로그인 ───── */
+  const dlg = $('#loginDlg');
+  $('#adminToggle').addEventListener('click', async () => {
+    if (adminToken) {
+      api('adminLogout', adminToken).catch(() => {});
+      setAdmin(null);
+      toast('로그아웃했습니다.');
+    } else {
+      $('#adminPw').value = '';
+      dlg.showModal();
+    }
+  });
+  $('#loginCancel').addEventListener('click', () => dlg.close());
+  $('#loginForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    try {
+      const token = await api('adminLogin', $('#adminPw').value);
+      dlg.close();
+      setAdmin(token);
+      toast('관리자로 로그인했습니다.');
+    } catch (e) { toast(e.message, true); }
+  });
+
+  showList();
+</script>
+</body>
+</html>
