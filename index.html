@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<base target="_top">
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공지 게시판</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
   :root {
@@ -117,8 +118,8 @@
 <body>
 <header class="board">
   <div class="wrap" style="padding-bottom:0">
-    <h1><?= config.BOARD_TITLE ?></h1>
-    <p><?= config.BOARD_DESC ?></p>
+    <h1>공지 게시판</h1>
+    <p>공지사항을 확인하고 궁금한 점은 댓글로 남겨 주세요.</p>
   </div>
 </header>
 
@@ -141,6 +142,9 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
+  // ▼ Apps Script 웹 앱 배포 URL (/exec 로 끝나는 주소)
+  const API_URL = 'https://script.google.com/macros/s/AKfycbyKy7L_gF2zx7aDG-lTjzyWQFxlenM27x0YPEGRskSGUyyPiubeagrzNB8Pjp2saVee4g/exec';
+
   // 관리자 토큰은 메모리에만 보관 → 새로고침하면 다시 로그인
   let adminToken = null;
   let current = { view: 'list', postId: null };
@@ -148,12 +152,23 @@
   const $ = (s) => document.querySelector(s);
   const view = $('#view');
 
-  function api(fn, ...args) {
-    return new Promise((resolve, reject) => {
-      google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler((e) => reject(new Error((e && e.message || String(e)).replace(/^Error:\s*/, ''))))[fn](...args);
-    });
+  // text/plain으로 보내야 CORS 사전 요청(preflight) 없이 Apps Script에 전달됩니다
+  async function api(action, ...args) {
+    let res;
+    try {
+      res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, args }),
+      });
+    } catch (e) {
+      throw new Error('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+    }
+    let json;
+    try { json = await res.json(); }
+    catch (e) { throw new Error('서버 응답을 읽을 수 없습니다. 배포 설정(액세스: 모든 사용자)을 확인해 주세요.'); }
+    if (!json.ok) throw new Error(json.error || '요청을 처리하지 못했습니다.');
+    return json.data;
   }
 
   function el(tag, props = {}, ...children) {
