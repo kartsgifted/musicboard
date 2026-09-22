@@ -1145,28 +1145,66 @@
       songWrap.querySelector('textarea').required = v === '참여';
     };
 
-    // 팀 신청: 1회차 팀 편성에서 고르면 편성·팀원·곡이 채워짐
+    // 팀 신청: 본인 이름을 넣으면 1회차 팀 편성에서 소속 팀을 찾아 편성·팀원이 자동으로 채워짐
     let teamFields = [];
+    let onNameInput = () => {};
     if (team) {
       const teams = rosterTeams();
       const ensembles = [...new Set(teams.map((t) => t.ensemble))];
-      const teamSel = el('select', { name: 'team' },
-        el('option', { value: '' }, teams.length ? '우리 팀 선택' : '팀 편성 없음'),
-        teams.map((t) => el('option', { value: t.team }, `${t.team} (${t.ensemble})`)),
-        el('option', { value: OTHER }, '직접 입력'));
+      const teamSel = el('select', { name: 'team' });
       const ensSel = el('input', { name: 'ensemble', required: true, maxlength: 40, list: 'ensList', placeholder: '예: 피아노 트리오' });
       const ensList = el('datalist', { id: 'ensList' }, ensembles.concat(['피아노 트리오', '피아노 듀오', '바이올린 & 피아노'].filter((x) => !ensembles.includes(x))).map((x) => el('option', { value: x })));
       const members = el('input', { name: 'members', required: true, maxlength: 200, placeholder: '예: 김OO, 이OO, 박OO' });
-      teamSel.addEventListener('change', () => {
-        const t = teams.find((x) => x.team === teamSel.value);
-        if (!t) return;
+      const teamHint = el('div', { class: 'apply-note', hidden: true });
+      const teamWrap = el('label', { class: 'full', hidden: true }, '우리 팀', teamSel);
+
+      // 팀이 정해지면 편성·팀원은 명단 그대로 (수정 불가), 직접 입력일 때만 풀림
+      const lock = (on) => [ensSel, members].forEach((x) => { x.readOnly = on; x.style.background = on ? 'var(--teal-soft)' : ''; });
+      const fillTeam = (t) => {
+        if (!t) { lock(false); return; }
         ensSel.value = t.ensemble;
         members.value = t.members.map((m) => m.name).join(', ');
+        lock(true);
         const sa = form.elements['song'];
         if (!sa.value) sa.value = t.selectedSong || fixedOf({ no: t.session }, t) || '';
-      });
+      };
+      const setOptions = (list, withOther) => {
+        teamSel.replaceChildren(...[
+          list.length > 1 ? el('option', { value: '' }, '신청할 팀 선택') : null,
+          ...list.map((t) => el('option', { value: t.team }, `${t.team} (${t.ensemble})`)),
+          withOther ? el('option', { value: OTHER }, '직접 입력') : null].filter(Boolean));
+      };
+      teamSel.addEventListener('change', () => fillTeam(teams.find((x) => x.team === teamSel.value)));
+
+      onNameInput = (name) => {
+        name = name.trim();
+        const mine = teams.filter((t) => t.members.some((m) => m.name === name));
+        if (!name || !teams.length) { teamWrap.hidden = true; teamHint.hidden = true; lock(false); return; }
+        if (mine.length === 1) {
+          setOptions(mine, false);
+          teamSel.value = mine[0].team;
+          teamWrap.hidden = true;
+          teamHint.hidden = false;
+          teamHint.textContent = `${mine[0].team} (${mine[0].ensemble}) 팀으로 신청합니다.`;
+          fillTeam(mine[0]);
+        } else if (mine.length > 1) {
+          setOptions(mine, false);
+          teamWrap.hidden = false;
+          teamHint.hidden = false;
+          teamHint.textContent = `${mine.length}개 팀에 참여하고 있어요. 이번에 신청할 팀을 골라 주세요.`;
+          ensSel.value = ''; members.value = ''; lock(true);
+        } else {
+          setOptions([], true);
+          teamSel.value = OTHER;
+          teamWrap.hidden = true;
+          teamHint.hidden = false;
+          teamHint.textContent = '팀 명단에서 이름을 찾지 못했어요. 편성과 팀원을 직접 입력해 주세요.';
+          ensSel.value = ''; members.value = ''; lock(false);
+        }
+      };
       teamFields = [
-        teams.length ? el('label', { class: 'full' }, el('span', {}, '우리 팀 ', el('small', {}, '(고르면 편성과 팀원이 채워져요)')), teamSel) : null,
+        el('div', { class: 'full' }, teamHint),
+        teamWrap,
         el('label', {}, '실내악 편성', ensSel, ensList),
         el('label', {}, el('span', {}, '팀원 이름 ', el('small', {}, '(쉼표로 구분)')), members),
       ];
@@ -1181,6 +1219,7 @@
         btn.disabled = true;
         try {
           const teamVal = team && f['team'] && f['team'].value !== OTHER ? f['team'].value : '';
+          if (team && f['team'].options.length > 1 && !teamVal && f['team'].value !== OTHER) { toast('신청할 팀을 골라 주세요.', true); btn.disabled = false; return; }
           const r = await api('applySession', s.no, {
             name: f['name'].value, attend, song: f['song'].value, password: f['pw'].value,
             ensemble: team ? f['ensemble'].value : '', members: team ? f['members'].value : '', team: teamVal,
@@ -1211,6 +1250,11 @@
         el('button', { type: 'button', class: 'btn', onclick: () => applyDlg.close() }, '취소'),
         el('button', { type: 'submit', class: 'btn primary' }, '신청하기')));
     form.addEventListener('change', (e) => { if (e.target.name === 'attend') syncAttend(); });
+    if (team) {
+      const nm = form.elements['name'];
+      nm.addEventListener('input', () => onNameInput(nm.value));
+      nm.addEventListener('change', () => onNameInput(nm.value));
+    }
     applyDlg.replaceChildren(form);
     applyDlg.showModal();
   }
