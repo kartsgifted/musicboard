@@ -333,6 +333,9 @@
   .mchip { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 8px; background: var(--teal-soft); border: 1px solid #CFE0E6; }
   .mchip b { font-weight: 700; font-size: 15px; }
   .mchip small { font-size: 12px; color: var(--teal-deep); }
+  .mchip .dup { color: var(--coral); font-weight: 800; margin-left: -4px; }
+  .dup-note { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+  .dup-note b { color: var(--coral); }
   .songs { display: grid; gap: 6px; font-size: 14px; }
   .songs .row { display: flex; gap: 8px; align-items: baseline; }
   .songs .song { flex: 1; min-width: 0; line-height: 1.45; }
@@ -855,6 +858,20 @@
   const isFixedRow = (x) => /^지정곡$/.test(String(x.detail || '').trim());
   const fixedOf = (s, t) => t.fixedSong || (songsFor(s, t).find((x) => x.song && isFixedRow(x)) || {}).song || '';
 
+  // 같은 회차에서 두 팀 이상에 이름이 나오는 학생 → { 이름: [팀, 팀] }
+  function dupMap(sessionNo) {
+    const by = {};
+    (board.teams || []).filter((t) => t.session === sessionNo).forEach((t) =>
+      new Set(t.members.map((m) => m.name)).forEach((n) => (by[n] = by[n] || []).push(t.team)));
+    Object.keys(by).forEach((n) => { if (by[n].length < 2) delete by[n]; });
+    return by;
+  }
+  function dupNote(sessionNo) {
+    const d = dupMap(sessionNo);
+    const names = Object.keys(d);
+    return names.length ? el('p', { class: 'dup-note' }, el('b', {}, '*'), ` 표시는 두 팀 이상에 중복 참여하는 학생입니다 (${names.length}명: ${names.join(', ')})`) : null;
+  }
+
   function groupTeams(teams) {
     const groups = [];
     teams.forEach((t) => {
@@ -889,7 +906,12 @@
       el('div', { class: 'team-top' }, el('b', {}, t.team), el('span', {}, `${t.members.length}명`)),
       el('div', { class: 'team-sec' }, el('span', { class: 'k' }, '구성원'),
         el('div', { class: 'members' }, t.members.length
-          ? t.members.map((m) => el('span', { class: 'mchip' }, el('b', {}, m.name), m.part ? el('small', {}, m.part) : null))
+          ? t.members.map((m) => {
+              const other = (dupMap(s.no)[m.name] || []).filter((x) => x !== t.team);
+              return el('span', { class: 'mchip', title: other.length ? `중복 참여: ${other.join(', ')}에도 참여` : null },
+                el('b', {}, m.name), other.length ? el('span', { class: 'dup', 'aria-label': '중복 참여' }, '*') : null,
+                m.part ? el('small', {}, m.part) : null);
+            })
           : el('span', { class: 'meta' }, '구성원 입력 전'))),
       el('div', { class: 'team-sec' }, el('span', { class: 'k ' + keyCls }, key), songs),
       extra,
@@ -904,12 +926,14 @@
   }
 
   function renderTeams(s, teams) {
-    const people = teams.reduce((n, t) => n + t.members.length, 0);
+    // 인원은 중복 참여 학생을 한 번만 셈
+    const people = new Set(teams.flatMap((t) => t.members.map((m) => m.name))).size;
     return el('section', { class: 'team-block', id: 'teamSec' },
       el('h3', {}, '팀 편성', el('span', { class: 'cnt' }, `${teams.length}팀${people ? ' · ' + people + '명' : ''}`)),
       ...groupTeams(teams).map((g) => el('div', { class: 'ens' },
         el('div', { class: 'ens-head' }, el('b', {}, g.name), el('span', {}, `${g.teams.length}팀`)),
-        el('div', { class: 'teams' }, g.teams.map((t) => teamCard(s, t, 'view'))))));
+        el('div', { class: 'teams' }, g.teams.map((t) => teamCard(s, t, 'view'))))),
+      dupNote(s.no));
   }
 
   function applyTeams(sessionNo, updated) {
@@ -960,7 +984,8 @@
         el('p', { class: 'teams-hint' }, '팀 카드를 누르면 희망곡을 입력할 수 있어요. 지정곡이 있는 팀은 지정곡 그대로 진행할지, 기타 곡을 희망할지 선택해 주세요.'),
         ...groupTeams(teams).map((g) => el('div', { class: 'ens' },
           el('div', { class: 'ens-head' }, el('b', {}, g.name), el('span', {}, `${g.teams.length}팀`)),
-          el('div', { class: 'teams' }, g.teams.map((t) => teamCard(s, t, 'pick')))))));
+          el('div', { class: 'teams' }, g.teams.map((t) => teamCard(s, t, 'pick'))))),
+        dupNote(s.no)));
     wishDlg.querySelector('.sheet-body').scrollTop = 0;
   }
 
@@ -980,7 +1005,7 @@
       ? el('div', { class: 'fl' }, '작성자',
           el('div', { class: 'who-pick' }, t.members.map((m, i) =>
             el('label', {}, el('input', { type: 'radio', name: 'who', value: m.name, required: true, checked: t.members.length === 1 && i === 0 }),
-              m.name + (m.part ? ` · ${m.part}` : '')))))
+              m.name + ((dupMap(s.no)[m.name] || []).length ? '*' : '') + (m.part ? ` · ${m.part}` : '')))))
       : el('label', { class: 'fl' }, '작성자 이름', el('input', { name: 'who', required: true, maxlength: 20 }));
 
     // 곡: 지정곡 드롭다운 + 기타(직접 입력)
