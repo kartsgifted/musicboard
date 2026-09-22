@@ -138,9 +138,13 @@
   .rich li.ql-indent-1 { margin-left: 2em; padding-left: 0; } .rich li.ql-indent-2 { margin-left: 4em; padding-left: 0; }
 
   /* 편집기 (Quill) 모양을 게시판에 맞춤 */
+  /* Quill 기본값(height:100%)이 도구 막대 높이만큼 아래로 넘쳐 첨부 영역을 덮는 문제 수정 */
+  .rich-wrap { display: flex; flex-direction: column; min-width: 0; }
+  .rich-wrap .ql-container { height: auto !important; }
+  .rich-wrap .ql-editor { height: auto !important; overflow-y: visible; }
   .rich-wrap .ql-toolbar.ql-snow { border: 1px solid var(--line); border-radius: 4px 4px 0 0; background: var(--ivory); font-family: var(--sans); padding: 6px 8px; }
   .rich-wrap .ql-container.ql-snow { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 4px 4px; background: #fff; font-family: var(--sans); font-size: 17px; }
-  .rich-wrap .ql-editor { min-height: 340px; line-height: 1.65; padding: 16px 18px; word-break: keep-all; }
+  .rich-wrap .ql-editor { min-height: 340px; max-height: none; line-height: 1.65; padding: 16px 18px; word-break: keep-all; }
   .rich-wrap .ql-editor.ql-blank::before { font-style: normal; color: #9AA0A4; left: 18px; }
   .rich-wrap .ql-snow .ql-stroke { stroke: var(--ink); }
   .rich-wrap .ql-snow .ql-fill { fill: var(--ink); }
