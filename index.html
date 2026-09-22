@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>K예술영재 프로젝트 음악분야 멘토링 게시판</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
 <style>
   /* 페이퍼로지: 설치된 글꼴이 있으면 먼저 쓰고, 없으면 웹폰트로 불러옴 */
   @font-face { font-family: 'Paperlogy'; font-weight: 500; font-display: swap;
@@ -112,7 +115,62 @@
   /* 상세 */
   article { border-top: 2px solid var(--ink); padding: 32px 4px 8px; }
   article h2 { margin: 0 0 8px; font-family: var(--head); font-size: clamp(22px, 4vw, 28px); line-height: 1.4; }
-  article .body { white-space: pre-wrap; margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--line); }
+  article .body { margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--line); }
+  article .body.plain { white-space: pre-wrap; }
+
+  /* 서식 본문 (보기 화면과 편집 화면 공통) */
+  .rich > :first-child { margin-top: 0; }
+  .rich p { margin: 0; }
+  .rich p:empty::after { content: '\00a0'; }
+  .rich h2 { font-family: var(--head); font-weight: 700; font-size: 1.4em; line-height: 1.4; margin: 1.2em 0 .4em; }
+  .rich h3 { font-family: var(--head); font-weight: 700; font-size: 1.15em; line-height: 1.45; margin: 1em 0 .3em; color: var(--teal-deep); }
+  .rich ul, .rich ol { margin: .4em 0; padding-left: 1.6em; }
+  .rich li { margin: .15em 0; }
+  .rich blockquote { margin: .8em 0; padding: .4em 0 .4em 1em; border-left: 4px solid var(--teal); background: var(--teal-soft); }
+  .rich a { color: var(--teal); text-underline-offset: 3px; }
+  .rich strong { font-weight: 700; }
+  .rich .ql-align-center { text-align: center; }
+  .rich .ql-align-right { text-align: right; }
+  .rich .ql-align-justify { text-align: justify; }
+  .rich .ql-size-small { font-size: .85em; }
+  .rich .ql-size-large { font-size: 1.3em; }
+  .rich .ql-indent-1 { padding-left: 2em; } .rich .ql-indent-2 { padding-left: 4em; } .rich .ql-indent-3 { padding-left: 6em; }
+  .rich li.ql-indent-1 { margin-left: 2em; padding-left: 0; } .rich li.ql-indent-2 { margin-left: 4em; padding-left: 0; }
+
+  /* 편집기 (Quill) 모양을 게시판에 맞춤 */
+  .rich-wrap .ql-toolbar.ql-snow { border: 1px solid var(--line); border-radius: 4px 4px 0 0; background: var(--ivory); font-family: var(--sans); padding: 6px 8px; }
+  .rich-wrap .ql-container.ql-snow { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 4px 4px; background: #fff; font-family: var(--sans); font-size: 17px; }
+  .rich-wrap .ql-editor { min-height: 340px; line-height: 1.65; padding: 16px 18px; word-break: keep-all; }
+  .rich-wrap .ql-editor.ql-blank::before { font-style: normal; color: #9AA0A4; left: 18px; }
+  .rich-wrap .ql-snow .ql-stroke { stroke: var(--ink); }
+  .rich-wrap .ql-snow .ql-fill { fill: var(--ink); }
+  .rich-wrap .ql-snow button:hover .ql-stroke, .rich-wrap .ql-snow button.ql-active .ql-stroke,
+  .rich-wrap .ql-snow .ql-picker-label:hover .ql-stroke, .rich-wrap .ql-snow .ql-picker-label.ql-active .ql-stroke { stroke: var(--teal); }
+  .rich-wrap .ql-snow button:hover .ql-fill, .rich-wrap .ql-snow button.ql-active .ql-fill { fill: var(--teal); }
+  .rich-wrap .ql-snow.ql-toolbar button.ql-active, .rich-wrap .ql-snow .ql-picker-label.ql-active { color: var(--teal); }
+  .rich-wrap .ql-snow .ql-picker { color: var(--ink); }
+  .rich-wrap .ql-snow .ql-picker.ql-header { width: 96px; }
+  .rich-wrap .ql-snow .ql-picker.ql-size { width: 72px; }
+  .rich-wrap .ql-snow .ql-picker.ql-header .ql-picker-label::before,
+  .rich-wrap .ql-snow .ql-picker.ql-header .ql-picker-item::before { content: '본문'; }
+  .rich-wrap .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="2"]::before,
+  .rich-wrap .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="2"]::before { content: '큰 제목'; }
+  .rich-wrap .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="3"]::before,
+  .rich-wrap .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="3"]::before { content: '작은 제목'; }
+  .rich-wrap .ql-snow .ql-picker.ql-size .ql-picker-label::before,
+  .rich-wrap .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: '보통'; }
+  .rich-wrap .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+  .rich-wrap .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="small"]::before { content: '작게'; }
+  .rich-wrap .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+  .rich-wrap .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="large"]::before { content: '크게'; }
+  .rich-wrap .ql-snow .ql-tooltip { font-family: var(--sans); z-index: 5; }
+  .rich-wrap .ql-snow .ql-tooltip::before { content: '링크 주소:'; }
+  .rich-wrap .ql-snow .ql-tooltip[data-mode=link]::before { content: '링크 주소 입력:'; }
+  .rich-wrap .ql-snow .ql-tooltip a.ql-action::after { content: '수정'; }
+  .rich-wrap .ql-snow .ql-tooltip a.ql-remove::before { content: '제거'; }
+  .rich-wrap .ql-snow .ql-tooltip.ql-editing a.ql-action::after { content: '저장'; }
+  .rich-wrap .ql-snow .ql-editor h2 { font-size: 1.4em; }
+  .rich-wrap .ql-snow .ql-editor h3 { font-size: 1.15em; }
   .admin-actions { display: flex; gap: 8px; margin-top: 28px; }
 
   section.comments { margin-top: 48px; background: var(--surface); border-radius: 6px; padding: 28px 28px 24px; }
@@ -329,7 +387,7 @@
     const art = el('article', {},
       el('h2', {}, p.pinned ? el('span', { class: 'pin' }, '고정') : null, p.title),
       el('div', { class: 'meta' }, fmt(p.createdAt) + (p.updatedAt ? ` (수정 ${fmt(p.updatedAt)})` : '')),
-      el('div', { class: 'body' }, p.content),
+      renderBody(p.content),
       renderAttachments(p.attachments || []),
       adminToken ? el('div', { class: 'admin-actions' },
         el('button', { class: 'btn', onclick: () => showEditor(p) }, '수정'),
@@ -366,6 +424,78 @@
     );
 
     view.replaceChildren(back, art, sec);
+  }
+
+  /* ───── 서식 본문 ───── */
+  // 서식 편집기로 쓴 글은 HTML, 예전 글은 일반 텍스트
+  const isHtml = (s) => /^\s*<(p|h[1-6]|ol|ul|blockquote|pre|div)[\s>]/i.test(s || '');
+
+  function renderBody(content) {
+    if (!isHtml(content) || !window.DOMPurify) {
+      return el('div', { class: 'body plain' }, isHtml(content) ? stripTags(content) : content);
+    }
+    const div = el('div', { class: 'body rich' });
+    div.innerHTML = DOMPurify.sanitize(content, {
+      ALLOWED_TAGS: ['p', 'br', 'h2', 'h3', 'strong', 'b', 'em', 'i', 'u', 's', 'span', 'a', 'ol', 'ul', 'li', 'blockquote'],
+      ALLOWED_ATTR: ['href', 'class', 'style'],
+    });
+    div.querySelectorAll('a').forEach((a) => { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
+    return div;
+  }
+
+  // DOMParser로 읽으면 스크립트·이미지가 실행되지 않음
+  function stripTags(html) {
+    const doc = new DOMParser().parseFromString(
+      String(html).replace(/<\/(p|h\d|li|blockquote)>/gi, '$&\n'), 'text/html');
+    doc.querySelectorAll('script, style').forEach((n) => n.remove());
+    return doc.body.textContent.trim();
+  }
+
+  const TOOL_TITLES = {
+    'ql-header': '문단 종류', 'ql-size': '글자 크기', 'ql-bold': '굵게', 'ql-italic': '기울임',
+    'ql-underline': '밑줄', 'ql-strike': '취소선', 'ql-color': '글자색', 'ql-background': '형광펜',
+    'ql-list': '목록', 'ql-align': '정렬', 'ql-indent': '들여쓰기', 'ql-blockquote': '인용 상자',
+    'ql-link': '링크', 'ql-clean': '서식 지우기',
+  };
+
+  function createRichEditor(host) {
+    const brand = ['#212326', '#176C86', '#1C6077', '#E84958', '#62686D'];
+    const quill = new Quill(host, {
+      theme: 'snow',
+      placeholder: '내용을 입력하세요',
+      formats: ['header', 'size', 'bold', 'italic', 'underline', 'strike', 'color', 'background',
+                'list', 'indent', 'align', 'blockquote', 'link'],
+      modules: {
+        toolbar: [
+          [{ header: [2, 3, false] }, { size: ['small', false, 'large'] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ color: brand }, { background: ['#FFE3D9', '#E6F0F3', '#FFF3B0', false] }],
+          [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }],
+          [{ align: [] }, 'blockquote', 'link'],
+          ['clean'],
+        ],
+      },
+    });
+    // 도구 버튼에 한글 설명(마우스를 올리면 표시)
+    const bar = host.previousElementSibling;
+    if (bar) {
+      bar.querySelectorAll('button, .ql-picker').forEach((b) => {
+        const cls = [...b.classList].find((c) => TOOL_TITLES[c]);
+        if (!cls) return;
+        let t = TOOL_TITLES[cls];
+        if (cls === 'ql-list') t = b.value === 'ordered' ? '번호 목록' : '글머리 목록';
+        if (cls === 'ql-indent') t = b.value === '-1' ? '내어쓰기' : '들여쓰기';
+        b.setAttribute('title', t);
+        if (b.tagName === 'BUTTON') b.setAttribute('aria-label', t);
+      });
+    }
+    return quill;
+  }
+
+  function editorHtml(quill) {
+    if (!quill.getText().trim()) return '';
+    // Quill 2.0.3은 공백을 &nbsp;로 바꿔 줄바꿈이 어색해지므로 일반 공백으로 되돌림
+    return quill.getSemanticHTML().replace(/&nbsp;/g, ' ');
   }
 
   /* ───── 첨부파일 ───── */
@@ -540,17 +670,26 @@
 
     const submitBtn = el('button', { type: 'submit', class: 'btn primary' }, p ? '수정 완료' : '등록');
 
+    // 서식 편집기 (불러오기에 실패하면 일반 입력칸으로 대체)
+    const useRich = !!window.Quill;
+    const richHost = el('div');
+    const plainBox = el('textarea', { name: 'content', placeholder: '내용', maxlength: 10000 });
+    const contentBox = useRich ? el('div', { class: 'rich-wrap' }, richHost) : plainBox;
+    let quill = null;
+
     const form = el('form', { class: 'editor', onsubmit: async (ev) => {
         ev.preventDefault();
         if (uploading > 0) return;
         if (items.some((it) => it.state === 'error') &&
             !confirm('올리지 못한 파일이 있습니다. 그 파일은 빼고 등록할까요?')) return;
+        const content = quill ? editorHtml(quill) : plainBox.value.trim();
+        if (!content) { toast('내용을 입력해 주세요.', true); (quill || plainBox).focus(); return; }
         submitBtn.disabled = true;
         try {
           const id = await api('savePost', adminToken, {
             id: p && p.id,
             title: form.elements['title'].value,
-            content: form.elements['content'].value,
+            content,
             pinned: form.elements['pinned'].checked,
             attachments: items.filter((it) => it.state === 'done').map((it) => it.meta),
           });
@@ -559,7 +698,7 @@
         } catch (e) { handleErr(e); submitBtn.disabled = false; }
       } },
       el('input', { name: 'title', placeholder: '제목', maxlength: 100, required: true }),
-      el('textarea', { name: 'content', placeholder: '내용', maxlength: 10000, required: true }),
+      contentBox,
       drop, fileInput, listEl,
       el('label', { class: 'check' }, el('input', { type: 'checkbox', name: 'pinned' }), '목록 맨 위에 고정'),
       el('div', { class: 'form-end' },
@@ -567,8 +706,18 @@
         submitBtn
       )
     );
-    if (p) { form.elements['title'].value = p.title; form.elements['content'].value = p.content; form.elements['pinned'].checked = p.pinned; }
     view.replaceChildren(el('div', { class: 'toolbar' }, el('strong', {}, p ? '글 수정' : '새 글 작성')), form);
+    if (useRich) quill = createRichEditor(richHost);
+    if (p) {
+      form.elements['title'].value = p.title;
+      form.elements['pinned'].checked = p.pinned;
+      if (quill) {
+        if (isHtml(p.content)) quill.clipboard.dangerouslyPasteHTML(window.DOMPurify ? DOMPurify.sanitize(p.content) : p.content);
+        else quill.setText(p.content);
+      } else {
+        plainBox.value = isHtml(p.content) ? stripTags(p.content) : p.content;
+      }
+    }
     drawList();
     form.elements['title'].focus();
   }
