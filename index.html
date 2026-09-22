@@ -245,7 +245,9 @@
   .score { --g: 18px; position: relative; min-width: 720px; max-width: 1040px; margin: 0 auto; height: calc(var(--g) * 4 + 122px); padding: 0 40px; }
   .score .staff { position: absolute; left: 40px; right: 40px; top: 70px; height: calc(var(--g) * 4 + 1px);
     background: repeating-linear-gradient(to bottom, rgba(255,255,255,.28) 0 1px, transparent 1px var(--g)); }
-  .score .track { position: absolute; left: 40px; right: 40px; top: 70px; height: calc(var(--g) * 4); }
+  .score .track { position: absolute; left: 108px; right: 40px; top: 70px; height: calc(var(--g) * 4); }
+  /* 높은음자리표: 오선 간격(--g)에 맞춰 크기 조정, 소용돌이 중심이 아래에서 둘째 줄(솔)에 오도록 */
+  .clef { position: absolute; left: 46px; top: calc(70px - var(--g) * 2.5); width: calc(var(--g) * 3.334); height: calc(var(--g) * 10); pointer-events: none; }
   .bar { position: absolute; top: 0; height: calc(var(--g) * 4 + 1px); width: 1px; background: rgba(255,255,255,.45); }
   .bar.final { width: 4px; box-shadow: -5px 0 0 -3px rgba(255,255,255,.45); transform: translateX(-4px); background: rgba(255,255,255,.7); }
   .month { position: absolute; top: -24px; font-family: var(--head); font-size: 13px; font-weight: 600; opacity: .7; white-space: nowrap; transform: translateX(8px); }
@@ -275,9 +277,6 @@
   .tie::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; } /* 막대를 가리키기 쉽게 */
   .tie { position: absolute; height: 6px; border-radius: 3px; background: rgba(255,255,255,.4); transform: translateY(-50%); cursor: pointer; border: 0; padding: 0; }
   .tie.sel { background: var(--apricot); }
-  .dlabel { position: absolute; top: calc(var(--g) * 4 + 12px); transform: translateX(-50%); font-size: 12px; opacity: .8; white-space: nowrap; }
-  .dlabel.row2 { top: calc(var(--g) * 4 + 30px); }
-  .dlabel.ev { opacity: 1; font-weight: 700; }
   .playhead { position: absolute; top: -40px; height: calc(var(--g) * 4 + 48px); width: 2px; background: var(--coral); transform: translateX(-1px); pointer-events: none; }
   .playhead span { position: absolute; top: 0; left: 50%; transform: translate(-50%, -100%); background: var(--coral); color: #fff;
     font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 2px; white-space: nowrap; }
@@ -662,7 +661,6 @@
     }
     const fin = el('div', { class: 'bar final' }); fin.style.left = '100%'; track.append(fin);
 
-    const labels = new Map(); // 날짜 → 행사일 여부
     board.sessions.forEach((s, i) => {
       const sel = s.no === selectedNo;
       const y = pitch(i);
@@ -690,26 +688,21 @@
         b.style.left = x(m.date);
         b.style.top = y;
         track.append(b);
-        labels.set(m.date, labels.get(m.date) || isEvent);
       });
     });
 
-    // 음표 날짜만 표시 (가까우면 두 번째 줄로)
-    let lastRow1 = -99;
-    [...labels.keys()].sort().forEach((d) => {
-      const pos = pct(d);
-      const row2 = pos - lastRow1 < 4.5;
-      if (!row2) lastRow1 = pos;
-      const l = el('span', { class: 'dlabel' + (row2 ? ' row2' : '') + (labels.get(d) ? ' ev' : '') }, md(d));
-      l.style.left = x(d);
-      track.append(l);
-    });
+    // 날짜는 말풍선(마우스 올림)에서만 보여주고, 오선 위에는 월만 표시
 
     const ph = el('div', { class: 'playhead' }, el('span', {}, `${T < start ? '◀ ' : ''}오늘 ${dots(T)}${T > end ? ' ▶' : ''}`));
     ph.style.left = x(T);
     track.append(ph);
 
-    box.replaceChildren(el('div', { class: 'staff' }), track);
+    const clef = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    clef.setAttribute('class', 'clef');
+    clef.setAttribute('viewBox', '0 0 40 120');
+    clef.setAttribute('aria-hidden', 'true');
+    clef.innerHTML = '<path d="M21 72 C13 72 12 60 20 57 C30 54 35 66 30 74 C24 83 9 80 8 64 C7 48 27 38 28 22 C29 10 22 6 19 12 C16 18 17 30 19 44 L23 100 C24 110 14 111 13 104" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="15" cy="103" r="4.2" fill="#fff"/>';
+    box.replaceChildren(el('div', { class: 'staff' }), clef, track);
     const sc = box.parentElement;
     if (sc.scrollWidth > sc.clientWidth) {
       requestAnimationFrame(() => { sc.scrollLeft = Math.max(0, ph.offsetLeft + track.offsetLeft - sc.clientWidth / 2); });
