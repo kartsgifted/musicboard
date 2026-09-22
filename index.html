@@ -872,10 +872,10 @@
     let key = '', keyCls = '', extra = null;
     if (t.selectedSong) { key = '확정곡'; keyCls = 'sel'; songs.append(el('span', { class: 'song' }, t.selectedSong)); }
     else if (t.fixedSong) {
-      key = '지정곡 · 기본 입력';
+      key = '지정곡';
       songs.append(el('span', { class: 'song' }, t.fixedSong));
-      if (t.wishes.length) extra = el('div', { class: 'team-sec' }, el('span', { class: 'k' }, `기타 희망곡 ${t.wishes.length}`),
-        el('div', { class: 'songs' }, ...wishRows()));
+      extra = el('div', { class: 'team-sec' }, el('span', { class: 'k' }, `팀 희망곡 ${t.wishes.length}`),
+        el('div', { class: 'songs' }, ...(t.wishes.length ? wishRows() : [el('span', { class: 'none' }, '아직 선택하지 않았어요')])));
     } else {
       key = `팀 희망곡 ${t.wishes.length}`;
       if (t.wishes.length) songs.append(...wishRows());
@@ -890,7 +890,7 @@
       el('div', { class: 'team-sec' }, el('span', { class: 'k ' + keyCls }, key), songs),
       extra,
       pick ? el('div', { class: 'team-act' }, el('button', { type: 'button', tabindex: '-1' },
-        t.fixedSong ? '지정곡 확인 · 기타 희망곡' : (t.wishes.length ? '희망곡 추가 입력' : '희망곡 입력'))) : null,
+        t.wishes.length ? '희망곡 추가 입력' : '희망곡 입력')) : null,
     ];
     return pick
       ? el('div', { class: 'team pick' + (t.fixedSong ? ' fixed' : ''), role: 'button', tabindex: '0', 'aria-label': `${t.team} 희망곡 입력`,
@@ -953,7 +953,7 @@
     wishDlg.replaceChildren(
       sheetHead(`${s.no}회 팀 확인 및 ${s.applyLabel}`, `${mdw(s.applyEnd)} 마감 · 우리 팀을 선택하세요`),
       el('div', { class: 'sheet-body' },
-        el('p', { class: 'teams-hint' }, '팀 카드를 누르면 희망곡을 입력할 수 있어요. 지정곡이 있는 팀은 지정곡으로 기본 입력되어 있고, 다른 곡을 원할 때만 기타로 입력하면 됩니다.'),
+        el('p', { class: 'teams-hint' }, '팀 카드를 누르면 희망곡을 입력할 수 있어요. 지정곡이 있는 팀은 지정곡 그대로 진행할지, 기타 곡을 희망할지 선택해 주세요.'),
         ...groupTeams(teams).map((g) => el('div', { class: 'ens' },
           el('div', { class: 'ens-head' }, el('b', {}, g.name), el('span', {}, `${g.teams.length}팀`)),
           el('div', { class: 'teams' }, g.teams.map((t) => teamCard(s, t, 'pick')))))));
@@ -977,10 +977,10 @@
 
     // 곡: 지정곡 드롭다운 + 기타(직접 입력)
     const sel = list.length ? el('select', { name: 'pick', required: true },
-      fixed ? null : el('option', { value: '' }, '곡을 선택하세요'),
-      list.map((x, i) => el('option', { value: String(i), selected: fixed && i === 0 }, fixed ? `[지정곡] ${x.song}` : x.song)),
+      el('option', { value: '' }, '곡을 선택하세요'),
+      list.map((x, i) => el('option', { value: String(i) }, fixed ? `[지정곡] ${x.song}` : x.song)),
       el('option', { value: OTHER }, '기타 (지정곡 외 직접 입력)')) : null;
-    const fixedNote = fixed ? el('div', { class: 'song-guide' }, '지정곡으로 기본 입력되어 있어 따로 기록하지 않아도 됩니다. 다른 곡을 희망할 때만 기타를 선택해 주세요.') : null;
+    const fixedNote = fixed ? el('div', { class: 'song-guide' }, '지정곡으로 진행하려면 지정곡을, 다른 곡을 희망하면 기타를 선택해 주세요.') : null;
     const detailBox = el('div', { class: 'song-guide', hidden: true });
     const memoWrap = el('label', { class: 'fl', hidden: true }, el('span', {}, '악장 · 번호 ', el('small', {}, '(선택 조건이 있는 곡은 적어 주세요)')),
       el('input', { name: 'memo', maxlength: 100, placeholder: '예: I, III악장 / No. 1, 5' }));
@@ -996,19 +996,7 @@
       memoWrap.hidden = !(x && x.detail);
       otherWrap.hidden = v !== OTHER;
       otherWrap.querySelector('textarea').required = v === OTHER;
-      syncFixed();
     });
-    // 지정곡 팀: 지정곡이 선택된 상태에서는 기록 버튼 대신 안내
-    function syncFixed() {
-      if (!fixed) return;
-      const keep = sel.value !== OTHER;
-      fixedNote.hidden = !keep;
-      submitBtn.disabled = keep;
-      submitBtn.textContent = keep ? '지정곡으로 입력되어 있어요' : '기타 희망곡 기록';
-      pwWrap.hidden = keep;
-      pwWrap.querySelector('input').required = !keep;
-      if (whoWrap) { whoWrap.hidden = keep; whoWrap.querySelectorAll('input').forEach((i) => (i.required = !keep)); }
-    }
 
     const whoWrap = whoField;
     const pwWrap = el('label', { class: 'fl' }, el('span', {}, '비밀번호 ', el('small', {}, '(숫자 4자리 · 삭제할 때 필요)')),
@@ -1019,12 +1007,11 @@
         ev.preventDefault();
         const f = form.elements;
         let song;
-        if (fixed && sel.value !== OTHER) return;
         if (sel && sel.value !== OTHER) {
           const x = list[+sel.value];
           if (!x) { toast('곡을 선택해 주세요.', true); return; }
           const memo = f['memo'].value.trim();
-          song = x.song + (memo ? ` (${memo})` : '');
+          song = (fixed ? '[지정곡] ' : '') + x.song + (memo ? ` (${memo})` : '');
         } else {
           song = f['other'].value.trim();
           if (!song) { toast('희망곡을 입력해 주세요.', true); return; }
@@ -1041,7 +1028,6 @@
       } },
       sel ? el('label', { class: 'fl' }, '희망곡', sel) : null, fixedNote, detailBox, memoWrap, otherWrap,
       whoField, pwWrap, submitBtn);
-    syncFixed();
 
     wishDlg.replaceChildren(
       sheetHead(`${t.team} 희망곡 입력`, `${t.ensemble} · ${mdw(s.applyEnd)} 마감`, () => wishStep1(s)),
