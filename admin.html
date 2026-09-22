@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>관리자 · K예술영재 프로젝트 음악분야 멘토링</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  @font-face { font-family: 'Paperlogy'; font-weight: 500; font-display: swap;
+    src: local('페이퍼로지 5 Medium'), local('Paperlogy-5Medium'), url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); }
+  @font-face { font-family: 'Paperlogy'; font-weight: 600; font-display: swap;
+    src: local('페이퍼로지 6 SemiBold'), local('Paperlogy-6SemiBold'), url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2'); }
+  @font-face { font-family: 'Paperlogy'; font-weight: 700; font-display: swap;
+    src: local('페이퍼로지 7 Bold'), local('Paperlogy-7Bold'), url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2'); }
+  @font-face { font-family: 'Paperlogy'; font-weight: 800; font-display: swap;
+    src: local('페이퍼로지 8 ExtraBold'), local('Paperlogy-8ExtraBold'), url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2'); }
+
+  :root {
+    --teal: #176C86; --teal-deep: #1C6077; --ivory: #FAF9F5; --ink: #212326; --coral: #E84958; --apricot: #FFB098;
+    --muted: #62686D; --line: #E3E1D9; --surface: #FFFFFF; --teal-soft: #E6F0F3;
+    --sans: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    --head: 'Paperlogy', 'Pretendard', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--ivory); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  a { color: var(--teal); }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .bar { background: var(--teal-deep); color: #fff; position: sticky; top: 0; z-index: 10; }
+  .bar::after { content: ''; display: block; height: 4px; background: linear-gradient(to right, var(--coral) 0 96px, var(--teal) 96px); }
+  .bar .wrap { display: flex; align-items: center; gap: 16px; min-height: 64px; }
+  .bar h1 { margin: 0; font-family: var(--head); font-weight: 700; font-size: 19px; flex: 1; }
+  .bar h1 small { font-family: var(--sans); font-weight: 400; font-size: 14px; opacity: .75; margin-left: 10px; }
+  .bar a, .bar button { color: #fff; background: none; border: 1px solid rgba(255,255,255,.5); border-radius: 4px; padding: 6px 12px; font-size: 14px; text-decoration: none; cursor: pointer; white-space: nowrap; }
+  .bar a:hover, .bar button:hover { background: rgba(255,255,255,.12); }
+
+  .btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: 500; white-space: nowrap; }
+  .btn:hover { border-color: var(--teal); color: var(--teal); }
+  .btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; font-family: var(--head); font-weight: 600; }
+  .btn.primary:hover { background: var(--teal-deep); color: #fff; }
+  .btn.sm { padding: 4px 10px; font-size: 13px; }
+  .btn.danger:hover { color: var(--coral); border-color: var(--coral); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  input, select { border: 1px solid var(--line); border-radius: 4px; padding: 9px 12px; background: #fff; }
+
+  /* 로그인 */
+  .login { max-width: 400px; margin: 12vh auto; background: #fff; border-top: 4px solid var(--teal); border-radius: 6px; padding: 32px; }
+  .login h2 { font-family: var(--head); margin: 0 0 6px; font-size: 22px; }
+  .login p { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+  .login input { width: 100%; margin-bottom: 12px; }
+  .login .btn { width: 100%; padding: 12px; font-size: 16px; }
+
+  /* 요약 타일 */
+  main { padding: 28px 0 80px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .stat { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; display: flex; gap: 16px; align-items: center; }
+  .stat .v { font-family: var(--head); font-weight: 800; font-size: 34px; line-height: 1; color: var(--teal-deep); }
+  .stat .v small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 2px; }
+  .stat .l { font-size: 14px; color: var(--muted); }
+  .stat .l b { display: block; color: var(--ink); font-size: 15px; font-family: var(--head); margin-bottom: 2px; }
+  .ring { --p: 0; width: 64px; height: 64px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: conic-gradient(var(--teal) calc(var(--p) * 1%), var(--teal-soft) 0); }
+  .ring span { width: 48px; height: 48px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-family: var(--head); font-weight: 700; font-size: 14px; }
+  .mini { display: flex; gap: 14px; }
+  .mini div { text-align: center; }
+  .mini b { display: block; font-family: var(--head); font-size: 24px; color: var(--teal-deep); line-height: 1.1; }
+  .mini span { font-size: 12px; color: var(--muted); }
+
+  /* 탭 */
+  .tabs { display: flex; gap: 4px; margin: 32px 0 0; border-bottom: 2px solid var(--ink); }
+  .tab { background: none; border: 0; padding: 12px 20px; font-family: var(--head); font-weight: 600; font-size: 17px; color: var(--muted); cursor: pointer; border-radius: 6px 6px 0 0; }
+  .tab[aria-selected="true"] { background: var(--ink); color: #fff; }
+  .tab .n { font-family: var(--sans); font-size: 13px; font-weight: 600; margin-left: 6px; opacity: .8; }
+  .pane { background: #fff; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; padding: 24px; }
+  .tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .tools .sp { flex: 1; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 4px 12px; font-size: 14px; cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .chip .n { opacity: .7; margin-left: 4px; font-size: 12px; }
+
+  /* 표 */
+  .tbl-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 10px 10px; text-align: left; vertical-align: top; }
+  th { font-family: var(--head); font-weight: 600; background: var(--ivory); white-space: nowrap; position: sticky; top: 0; }
+  td.nw { white-space: nowrap; }
+  td.num { color: var(--muted); white-space: nowrap; }
+  tr:hover td { background: #FCFBF8; }
+  .tag { display: inline-block; font-family: var(--head); font-size: 12px; font-weight: 700; color: var(--teal); background: var(--teal-soft); padding: 1px 8px; border-radius: 2px; white-space: nowrap; }
+  .tag.pin { background: var(--apricot); color: var(--ink); }
+  .tag.ok { background: var(--teal); color: #fff; }
+  .tag.no { background: #F3F1EC; color: var(--muted); }
+  .tag.etc { background: #FCE3E5; color: #A42836; }
+  .ttl { font-weight: 600; color: var(--ink); text-decoration: none; }
+  .ttl:hover { color: var(--teal); text-decoration: underline; }
+  .acts { display: flex; gap: 6px; white-space: nowrap; }
+  .empty { text-align: center; color: var(--muted); padding: 48px 16px; }
+  .pinbtn { background: none; border: 1px solid var(--line); border-radius: 4px; min-width: 44px; padding: 0 8px; white-space: nowrap; height: 28px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); }
+  .pinbtn.on { background: var(--apricot); border-color: var(--apricot); color: var(--ink); }
+
+  /* 희망곡 현황 */
+  .progress { display: flex; align-items: center; gap: 16px; background: var(--ivory); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; }
+  .progress .track { flex: 1; height: 12px; background: #fff; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
+  .progress .fill { height: 100%; background: var(--teal); border-radius: 6px; }
+  .progress b { font-family: var(--head); font-size: 20px; color: var(--teal-deep); white-space: nowrap; }
+  .progress .miss { font-size: 14px; color: var(--muted); }
+  .progress .miss em { font-style: normal; color: var(--coral); font-weight: 600; }
+  .ens-title { font-family: var(--head); font-size: 17px; margin: 24px 0 10px; display: flex; align-items: center; gap: 10px; }
+  .ens-title::before { content: ''; width: 4px; height: 18px; border-radius: 2px; background: var(--teal); }
+  .ens-title span { font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--muted); }
+  table.wtbl { table-layout: fixed; min-width: 720px; }
+  table.wtbl th:nth-child(1) { width: 14%; } table.wtbl th:nth-child(2) { width: 24%; }
+  table.wtbl th:nth-child(3) { width: 48%; } table.wtbl th:nth-child(4) { width: 14%; }
+  .members { display: flex; gap: 4px; flex-wrap: wrap; }
+  .members span { background: var(--teal-soft); border-radius: 6px; padding: 1px 8px; font-size: 13px; white-space: nowrap; }
+  .wlist { display: grid; gap: 4px; }
+  .wlist div { display: flex; gap: 8px; align-items: baseline; }
+  .wlist .s { flex: 1; min-width: 0; }
+  .wlist .who { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .xdel { background: none; border: 0; padding: 0; color: var(--muted); font-size: 12px; text-decoration: underline; cursor: pointer; }
+  .xdel:hover { color: var(--coral); }
+  .tally { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 28px; }
+  .tally-box { border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+  .tally-box h4 { margin: 0 0 12px; font-family: var(--head); font-size: 15px; }
+  .hbar { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 4px 10px; align-items: center; font-size: 13px; margin-bottom: 8px; }
+  .hbar .name { grid-column: 1 / -1; line-height: 1.4; }
+  .hbar .b { height: 10px; background: var(--teal-soft); border-radius: 5px; overflow: hidden; }
+  .hbar .b i { display: block; height: 100%; background: var(--teal); border-radius: 5px; }
+  .hbar .c { font-family: var(--head); font-weight: 700; text-align: right; }
+
+  /* 참가 신청 */
+  .app-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .box { border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+  .box h4 { margin: 0 0 12px; font-family: var(--head); font-size: 15px; }
+  .big { font-family: var(--head); font-weight: 800; font-size: 44px; line-height: 1; color: var(--teal-deep); }
+  .big small { font-size: 18px; color: var(--muted); font-weight: 600; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .search { min-width: 200px; }
+  td.msg { min-width: 220px; white-space: pre-wrap; }
+
+  .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 12px 20px; border-radius: 4px; font-size: 15px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
+  .toast.show { opacity: 1; }
+  .toast.err { background: var(--coral); }
+  .loading { color: var(--muted); text-align: center; padding: 60px 0; }
+
+  @media (max-width: 900px) {
+    .stats, .app-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 600px) {
+    .wrap { padding: 0 14px; }
+    .stats, .app-grid { grid-template-columns: 1fr; }
+    .pane { padding: 16px 12px; }
+    .tab { padding: 10px 12px; font-size: 15px; }
+    .bar h1 small { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="wrap">
+    <h1>음악분야 멘토링 관리자<small>K예술영재 프로젝트</small></h1>
+    <a href="index.html" target="_blank" rel="noopener">게시판 보기</a>
+    <button type="button" id="logoutBtn" hidden>로그아웃</button>
+  </div>
+</header>
+
+<div id="app" class="wrap"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  // ▼ 게시판(index.html)과 같은 Apps Script 웹 앱 주소
+  const API_URL = 'https://script.google.com/macros/s/AKfycbyKy7L_gF2zx7aDG-lTjzyWQFxlenM27x0YPEGRskSGUyyPiubeagrzNB8Pjp2saVee4g/exec';
+
+  // 로그인 정보는 메모리에만 보관 → 새로고침하거나 다시 접속하면 비밀번호를 다시 입력
+  let token = null;
+  let board = null, apps = [];
+  let tab = 'posts', postFilter = 'all', appSession = null, appQuery = '';
+
+  const $ = (s) => document.querySelector(s);
+  const app = $('#app');
+
+  async function api(action, ...args) {
+    let res;
+    try {
+      res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, args }) });
+    } catch (e) { throw new Error('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'); }
+    let json;
+    try { json = await res.json(); } catch (e) { throw new Error('서버 응답을 읽을 수 없습니다.'); }
+    if (!json.ok) throw new Error(json.error || '요청을 처리하지 못했습니다.');
+    return json.data;
+  }
+
+  function el(tag, props = {}, ...children) {
+    const n = document.createElement(tag);
+    Object.entries(props).forEach(([k, v]) => {
+      if (k === 'class') n.className = v;
+      else if (k === 'style' && typeof v === 'string') n.setAttribute('style', v);
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else if (v === true) n.setAttribute(k, '');
+      else if (v !== false && v != null) n.setAttribute(k, v);
+    });
+    children.flat().forEach((c) => c != null && c !== false && n.append(c.nodeType ? c : document.createTextNode(c)));
+    return n;
+  }
+
+  let toastTimer;
+  function toast(msg, err) {
+    const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.className = 'toast'), 2800);
+  }
+  function fail(e) {
+    toast(e.message, true);
+    if (/로그인이 만료/.test(e.message)) { token = null; showLogin(); }
+  }
+
+  const fmt = (s) => (s ? s.slice(0, 16).replace(/-/g, '.') : '');
+  const sessionTitle = (no) => { const s = board && board.sessions.find((x) => x.no === no); return s ? `${no}회 ${s.title}` : (no ? `${no}회` : '공통'); };
+
+  function csvDownload(name, header, rows) {
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const text = [header, ...rows].map((r) => r.map(esc).join(',')).join('\r\n');
+    const a = el('a', { href: URL.createObjectURL(new Blob(['\ufeff' + text], { type: 'text/csv' })), download: name });
+    document.body.append(a); a.click(); a.remove();
+  }
+
+  /* ───── 로그인 ───── */
+  function showLogin() {
+    $('#logoutBtn').hidden = true;
+    const form = el('form', { class: 'login', onsubmit: async (ev) => {
+        ev.preventDefault();
+        const btn = form.querySelector('button');
+        btn.disabled = true;
+        try {
+          token = await api('adminLogin', form.elements['pw'].value);
+          $('#logoutBtn').hidden = false;
+          await loadAll();
+        } catch (e) { toast(e.message, true); btn.disabled = false; }
+      } },
+      el('h2', {}, '관리자 로그인'),
+      el('p', {}, '관리자 비밀번호를 입력하세요. 보안을 위해 다시 접속하면 비밀번호를 새로 입력해야 합니다.'),
+      el('input', { type: 'password', name: 'pw', placeholder: '관리자 비밀번호', autocomplete: 'current-password', required: true }),
+      el('button', { class: 'btn primary', type: 'submit' }, '로그인'));
+    app.replaceChildren(form);
+    form.elements['pw'].focus();
+  }
+  $('#logoutBtn').addEventListener('click', () => {
+    api('adminLogout', token).catch(() => {});
+    token = null; board = null; apps = [];
+    showLogin(); toast('로그아웃했습니다.');
+  });
+
+  async function loadAll() {
+    app.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
+    try {
+      [board, apps] = await Promise.all([api('getBoard'), api('adminGetApplications', token, 0)]);
+      const formSessions = board.sessions.filter((s) => s.applyType === 'form');
+      if (!appSession || !formSessions.some((s) => s.no === appSession)) appSession = formSessions[0] ? formSessions[0].no : null;
+      render();
+    } catch (e) { fail(e); }
+  }
+
+  /* ───── 화면 ───── */
+  function render() {
+    const posts = board.posts;
+    const teams = board.teams || [];
+    const wishTeams = teams.filter((t) => t.wishes.length).length;
+    const formSessions = board.sessions.filter((s) => s.applyType === 'form');
+    const pct = teams.length ? Math.round(wishTeams / teams.length * 100) : 0;
+
+    const stats = el('div', { class: 'stats' },
+      el('div', { class: 'stat' },
+        el('div', { class: 'v' }, String(posts.length), el('small', {}, '건')),
+        el('div', { class: 'l' }, el('b', {}, '게시글'), `공통 ${posts.filter((p) => !p.session).length} · 회차 ${posts.filter((p) => p.session).length}`)),
+      el('div', { class: 'stat' },
+        el('div', { class: 'v' }, String(posts.reduce((n, p) => n + (p.commentCount || 0), 0)), el('small', {}, '개')),
+        el('div', { class: 'l' }, el('b', {}, '댓글'), '전체 글 기준')),
+      el('div', { class: 'stat' },
+        el('div', { class: 'ring', style: `--p:${pct}` }, el('span', {}, `${pct}%`)),
+        el('div', { class: 'l' }, el('b', {}, '희망곡 입력'), `${wishTeams} / ${teams.length}팀 입력`)),
+      el('div', { class: 'stat' },
+        el('div', { class: 'mini' }, formSessions.map((s) =>
+          el('div', {}, el('b', {}, String(apps.filter((a) => a.session === s.no).length)), el('span', {}, `${s.no}회`)))),
+        el('div', { class: 'l' }, el('b', {}, '참가 신청'), '회차별 인원')));
+
+    const tabDefs = [['posts', '전체 글 관리', posts.length], ['wishes', '희망곡 현황', teams.length ? `${wishTeams}/${teams.length}` : ''], ['apps', '참가 신청', apps.length]];
+    const tabs = el('div', { class: 'tabs', role: 'tablist' }, tabDefs.map(([k, label, n]) =>
+      el('button', { class: 'tab', role: 'tab', 'aria-selected': String(tab === k), onclick: () => { tab = k; render(); } },
+        label, n !== '' ? el('span', { class: 'n' }, String(n)) : null)));
+
+    const pane = el('section', { class: 'pane', role: 'tabpanel' },
+      tab === 'posts' ? postsPane() : tab === 'wishes' ? wishesPane() : appsPane());
+
+    app.replaceChildren(el('main', {}, stats, tabs, pane));
+  }
+
+  /* ───── 1. 전체 글 관리 ───── */
+  // 글쓰기·수정은 게시판의 편집기에서: 로그인 정보를 한 번만 넘겨주고 이동
+  function goEditor(query) {
+    localStorage.setItem('mm_admin', JSON.stringify({ token, at: Date.now() }));
+    window.open(`index.html?${query}`, '_blank', 'noopener');
+  }
+
+  function postsPane() {
+    const opts = [['all', '전체'], ['0', '공통']].concat(board.sessions.map((s) => [String(s.no), `${s.no}회`]));
+    const list = board.posts.filter((p) => postFilter === 'all' || String(p.session) === postFilter);
+    const newSel = el('select', { 'aria-label': '새 글 회차' },
+      el('option', { value: '0' }, '공통 공지'),
+      board.sessions.map((s) => el('option', { value: String(s.no), selected: postFilter === String(s.no) }, `${s.no}회 ${s.title}`)));
+
+    const tools = el('div', { class: 'tools' },
+      el('div', { class: 'chips' }, opts.map(([v, label]) =>
+        el('button', { class: 'chip', 'aria-pressed': String(postFilter === v), onclick: () => { postFilter = v; render(); } },
+          label, el('span', { class: 'n' }, String(board.posts.filter((p) => v === 'all' || String(p.session) === v).length))))),
+      el('span', { class: 'sp' }),
+      newSel,
+      el('button', { class: 'btn primary', onclick: () => goEditor(`new=${newSel.value}`) }, '새 글 쓰기'),
+      el('button', { class: 'btn', onclick: loadAll }, '새로고침'));
+
+    if (!list.length) return [tools, el('div', { class: 'empty' }, '해당하는 글이 없습니다.')];
+
+    const rows = list.map((p) => el('tr', {},
+      el('td', {}, el('button', { class: 'pinbtn' + (p.pinned ? ' on' : ''), title: p.pinned ? '고정 해제' : '목록 위에 고정',
+        onclick: () => togglePin(p) }, p.pinned ? '고정' : '–')),
+      el('td', { class: 'nw' }, el('span', { class: 'tag' }, p.session ? `${p.session}회` : '공통')),
+      el('td', {}, el('a', { class: 'ttl', href: `index.html?post=${encodeURIComponent(p.id)}`, target: '_blank', rel: 'noopener' }, p.title)),
+      el('td', { class: 'num' }, fmt(p.createdAt)),
+      el('td', { class: 'num' }, p.commentCount ? String(p.commentCount) : '–'),
+      el('td', { class: 'num' }, p.fileCount ? String(p.fileCount) : '–'),
+      el('td', {}, el('div', { class: 'acts' },
+        el('button', { class: 'btn sm', onclick: () => goEditor(`edit=${encodeURIComponent(p.id)}`) }, '수정'),
+        el('button', { class: 'btn sm danger', onclick: () => removePost(p) }, '삭제')))));
+
+    return [tools, el('div', { class: 'tbl-wrap' }, el('table', {},
+      el('thead', {}, el('tr', {}, ['고정', '회차', '제목', '작성일', '댓글', '첨부', ''].map((h) => el('th', {}, h)))),
+      el('tbody', {}, rows))),
+      el('p', { class: 'sub' }, '글쓰기와 수정은 게시판 편집기가 새 탭으로 열립니다. 저장한 뒤 이 화면에서 새로고침을 누르면 반영돼요.')];
+  }
+
+  async function togglePin(p) {
+    try { await api('adminSetPinned', token, p.id, !p.pinned); p.pinned = !p.pinned; render(); toast(p.pinned ? '고정했습니다.' : '고정을 해제했습니다.'); }
+    catch (e) { fail(e); }
+  }
+  async function removePost(p) {
+    if (!confirm(`"${p.title}" 글을 삭제할까요?`)) return;
+    try { await api('deletePost', token, p.id); board.posts = board.posts.filter((x) => x.id !== p.id); render(); toast('삭제했습니다.'); }
+    catch (e) { fail(e); }
+  }
+
+  /* ───── 2. 희망곡 현황 ───── */
+  const songKey = (s) => String(s || '').replace(/^\[(지정곡|기타)\]\s*/, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const songKind = (s) => (/^\[지정곡\]/.test(s) ? 'fixed' : /^\[기타\]/.test(s) ? 'etc' : 'list');
+
+  function wishesPane() {
+    const teams = board.teams || [];
+    if (!teams.length) return el('div', { class: 'empty' }, 'teams 탭에 팀 편성이 아직 없습니다.');
+    const done = teams.filter((t) => t.wishes.length);
+    const missing = teams.filter((t) => !t.wishes.length);
+    const pct = Math.round(done.length / teams.length * 100);
+
+    const progress = el('div', { class: 'progress' },
+      el('b', {}, `${done.length} / ${teams.length}팀`),
+      el('div', { class: 'track' }, el('div', { class: 'fill', style: `width:${pct}%` })),
+      el('div', { class: 'miss' }, missing.length ? ['미입력 ', el('em', {}, missing.map((t) => t.team).join(', '))] : '모든 팀이 입력했습니다'));
+
+    const tools = el('div', { class: 'tools' }, el('span', { class: 'sp' }),
+      el('button', { class: 'btn', onclick: () => csvDownload('희망곡_현황.csv',
+        ['회차', '편성', '팀', '구성원', '구분', '희망곡', '작성자', '입력 시각'],
+        teams.flatMap((t) => (t.wishes.length ? t.wishes : [null]).map((w) => [
+          t.session, t.ensemble, t.team, t.members.map((m) => m.name + (m.part ? `(${m.part})` : '')).join(', '),
+          w ? { fixed: '지정곡', etc: '기타', list: '목록' }[songKind(w.song)] : '미입력', w ? w.song : '', w ? w.name : '', w ? w.createdAt : ''])))
+      }, '엑셀(CSV) 내려받기'),
+      el('button', { class: 'btn', onclick: loadAll }, '새로고침'));
+
+    // 편성별 표
+    const groups = [];
+    teams.forEach((t) => { let g = groups.find((x) => x.name === t.ensemble); if (!g) groups.push(g = { name: t.ensemble, teams: [] }); g.teams.push(t); });
+    const tables = groups.map((g) => [
+      el('h3', { class: 'ens-title' }, g.name, el('span', {}, `${g.teams.filter((t) => t.wishes.length).length} / ${g.teams.length}팀 입력`)),
+      el('div', { class: 'tbl-wrap' }, el('table', { class: 'wtbl' },
+        el('thead', {}, el('tr', {}, ['팀', '구성원', '희망곡', '상태'].map((h) => el('th', {}, h)))),
+        el('tbody', {}, g.teams.map((t) => el('tr', {},
+          el('td', { class: 'nw' }, el('b', {}, t.team)),
+          el('td', {}, el('div', { class: 'members' }, t.members.map((m) => el('span', {}, m.name)))),
+          el('td', {}, t.wishes.length ? el('div', { class: 'wlist' }, t.wishes.map((w) => el('div', {},
+              el('span', { class: 's' }, w.song),
+              el('span', { class: 'who' }, `${w.name} · ${fmt(w.createdAt)}`),
+              el('button', { class: 'xdel', onclick: () => removeWish(w) }, '삭제'))))
+            : el('span', { style: 'color:var(--muted)' }, '–')),
+          el('td', { class: 'nw' }, statusTag(t)))))))]);
+
+    // 많이 고른 곡
+    const tally = groups.map((g) => {
+      const count = {};
+      g.teams.forEach((t) => new Set(t.wishes.map((w) => songKey(w.song))).forEach((k) => (count[k] = (count[k] || 0) + 1)));
+      const top = Object.entries(count).sort((a, b) => b[1] - a[1]);
+      if (!top.length) return null;
+      const max = top[0][1];
+      return el('div', { class: 'tally-box' }, el('h4', {}, `${g.name} · 팀별 희망곡 집계`),
+        top.map(([name, n]) => el('div', { class: 'hbar' }, el('span', { class: 'name' }, name),
+          el('span', { class: 'b' }, el('i', { style: `width:${n / max * 100}%` })), el('span', { class: 'c' }, `${n}팀`))));
+    }).filter(Boolean);
+
+    return [progress, tools, ...tables.flat(), tally.length ? el('div', { class: 'tally' }, tally) : null];
+  }
+
+  function statusTag(t) {
+    if (t.selectedSong) return el('span', { class: 'tag ok' }, '확정');
+    if (!t.wishes.length) return el('span', { class: 'tag no' }, '미입력');
+    const kinds = new Set(t.wishes.map((w) => songKind(w.song)));
+    if (kinds.has('fixed') && kinds.size === 1) return el('span', { class: 'tag' }, '지정곡 선택');
+    if (kinds.has('etc')) return el('span', { class: 'tag etc' }, '기타 포함');
+    return el('span', { class: 'tag' }, '입력 완료');
+  }
+
+  async function removeWish(w) {
+    if (!confirm(`"${w.song}" 희망곡을 삭제할까요?`)) return;
+    try {
+      const updated = await api('adminDeleteTeamWish', token, w.id);
+      const no = updated[0] ? updated[0].session : null;
+      board.teams = board.teams.filter((t) => t.session !== no).concat(updated);
+      render(); toast('삭제했습니다.');
+    } catch (e) { fail(e); }
+  }
+
+  /* ───── 3. 참가 신청 ───── */
+  function countBy(list, key) {
+    const c = {};
+    list.forEach((a) => { const k = String(a[key] || '').trim() || '미기재'; c[k] = (c[k] || 0) + 1; });
+    return Object.entries(c).sort((a, b) => b[1] - a[1]);
+  }
+  function bars(entries) {
+    if (!entries.length) return el('div', { class: 'sub' }, '신청자가 없습니다.');
+    const max = entries[0][1];
+    return entries.slice(0, 8).map(([k, n]) => el('div', { class: 'hbar' }, el('span', { class: 'name' }, k),
+      el('span', { class: 'b' }, el('i', { style: `width:${n / max * 100}%` })), el('span', { class: 'c' }, `${n}명`)));
+  }
+
+  function appsPane() {
+    const formSessions = board.sessions.filter((s) => s.applyType === 'form');
+    if (!formSessions.length) return el('div', { class: 'empty' }, '신청을 받는 회차가 없습니다.');
+    const s = formSessions.find((x) => x.no === appSession) || formSessions[0];
+    const all = apps.filter((a) => a.session === s.no);
+    const q = appQuery.trim();
+    const list = q ? all.filter((a) => [a.name, a.school, a.instrument, a.phone].some((v) => String(v).includes(q))) : all;
+
+    const chips = el('div', { class: 'chips' }, formSessions.map((x) =>
+      el('button', { class: 'chip', 'aria-pressed': String(x.no === s.no), onclick: () => { appSession = x.no; appQuery = ''; render(); } },
+        `${x.no}회 ${x.title}`, el('span', { class: 'n' }, String(apps.filter((a) => a.session === x.no).length)))));
+
+    const search = el('input', { class: 'search', type: 'search', placeholder: '이름·학교·악기·연락처 검색', value: appQuery });
+    search.addEventListener('input', () => { appQuery = search.value; const pos = search.selectionStart; render(); const n = document.querySelector('.search'); n.focus(); n.setSelectionRange(pos, pos); });
+
+    const tools = el('div', { class: 'tools' }, chips, el('span', { class: 'sp' }), search,
+      el('button', { class: 'btn', disabled: !all.length, onclick: () => csvDownload(`${s.no}회_${s.title}_신청자.csv`,
+        ['번호', '신청 시각', '이름', '소속 학교', '학년', '전공 악기', '휴대폰', '하고 싶은 말'],
+        all.map((a, i) => [i + 1, a.createdAt, a.name, a.school, a.grade, a.instrument, a.phone, a.message])) }, '엑셀(CSV) 내려받기'),
+      el('button', { class: 'btn', onclick: loadAll }, '새로고침'));
+
+    const summary = el('div', { class: 'app-grid' },
+      el('div', { class: 'box' }, el('h4', {}, '신청 인원'),
+        el('div', { class: 'big' }, String(all.length), el('small', {}, '명')),
+        el('div', { class: 'sub' }, `신청 기간 ${s.applyStart ? s.applyStart.slice(5).replace('-', '/') : ''} ~ ${s.applyEnd ? s.applyEnd.slice(5).replace('-', '/') : ''} · 진행 ${s.date ? s.date.slice(5).replace('-', '/') : ''}`)),
+      el('div', { class: 'box' }, el('h4', {}, '전공 악기별'), bars(countBy(all, 'instrument'))),
+      el('div', { class: 'box' }, el('h4', {}, '학년별'), bars(countBy(all, 'grade'))));
+
+    const table = list.length ? el('div', { class: 'tbl-wrap' }, el('table', {},
+      el('thead', {}, el('tr', {}, ['번호', '신청 시각', '이름', '소속 학교', '학년', '전공 악기', '휴대폰', '하고 싶은 말', ''].map((h) => el('th', {}, h)))),
+      el('tbody', {}, list.map((a) => el('tr', {},
+        el('td', { class: 'num' }, String(all.indexOf(a) + 1)),
+        el('td', { class: 'num' }, fmt(a.createdAt)),
+        el('td', { class: 'nw' }, el('b', {}, a.name)),
+        el('td', {}, a.school), el('td', { class: 'nw' }, a.grade), el('td', { class: 'nw' }, a.instrument),
+        el('td', { class: 'nw' }, a.phone), el('td', { class: 'msg' }, a.message || ''),
+        el('td', {}, el('button', { class: 'btn sm danger', onclick: () => cancelApp(a) }, '신청 취소')))))))
+      : el('div', { class: 'empty' }, q ? '검색 결과가 없습니다.' : '아직 신청자가 없습니다.');
+
+    return [tools, summary, table];
+  }
+
+  async function cancelApp(a) {
+    if (!confirm(`${a.name} 학생의 신청을 취소 처리할까요? (시트에는 기록이 남습니다)`)) return;
+    try { await api('adminCancelApplication', token, a.id); apps = apps.filter((x) => x.id !== a.id); render(); toast('취소 처리했습니다.'); }
+    catch (e) { fail(e); }
+  }
+
+  showLogin();
+</script>
+</body>
+</html>
