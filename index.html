@@ -338,7 +338,14 @@
   .songs .song { line-height: 1.45; }
   .songs .who { color: var(--muted); font-size: 12px; margin-left: 4px; }
   .songs .none { color: var(--muted); }
-  .team .add { margin-top: auto; font-family: var(--head); font-weight: 700; font-size: 14px; color: var(--teal); }
+  .team.pick { cursor: pointer; transition: box-shadow .15s, transform .15s; }
+  .team.pick:hover { box-shadow: 0 6px 16px rgba(28,96,119,.12); transform: translateY(-2px); }
+  .songs .row { display: flex; gap: 6px; align-items: baseline; }
+  .songs .row .song { flex: 1; min-width: 0; }
+  .songs .del { background: none; border: 0; padding: 0; font-size: 12px; color: var(--muted); text-decoration: underline; cursor: pointer; white-space: nowrap; }
+  .songs .del:hover { color: var(--coral); }
+  .team .add { background: none; border: 0; padding: 0; text-align: left; cursor: pointer;
+    margin-top: auto; font-family: var(--head); font-weight: 700; font-size: 14px; color: var(--teal); }
   .team.pick { border: 2px solid var(--teal); padding: 13px 13px 11px; }
   .teams-hint { margin: -4px 0 14px; font-size: 15px; color: var(--muted); }
   .teams-hint b { color: var(--coral); }
@@ -346,6 +353,20 @@
   .fgrid .who-pick label, .who-pick label { display: inline-flex; grid-template-columns: none; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; font-weight: 500; }
   .who-pick input { width: auto; accent-color: var(--teal); margin: 0; }
   .fgrid .who-pick label:has(input:checked), .who-pick label:has(input:checked) { border-color: var(--teal); background: var(--teal-soft); }
+
+  .cta[aria-expanded="true"] { border-radius: 6px 6px 0 0; }
+  .picker { border: 2px solid var(--teal); border-top: 0; border-radius: 0 0 6px 6px; padding: 18px; background: var(--ivory); }
+  .picker .teams-hint { margin: 0 0 14px; }
+
+  /* 상단 이동 막대 (첫 화면이 아닐 때) */
+  .topnav { position: sticky; top: 0; z-index: 20; background: var(--teal-deep); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+  .topnav[hidden] { display: none; }
+  .topnav .wrap { display: flex; align-items: center; gap: 14px; min-height: 52px; }
+  .topnav button { background: none; border: 1px solid rgba(255,255,255,.5); color: #fff; border-radius: 4px; padding: 6px 12px;
+    font-family: var(--head); font-weight: 600; font-size: 15px; cursor: pointer; white-space: nowrap; }
+  .topnav button:hover { background: rgba(255,255,255,.12); }
+  .topnav .where-now { font-size: 14px; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-link { cursor: pointer; }
 
   .next { background: var(--ivory); border-radius: 6px; padding: 20px 22px; }
   .next .lbl { font-size: 14px; font-weight: 700; color: var(--teal); margin: 0 0 4px; }
@@ -412,14 +433,15 @@
 <body>
 <header class="hero">
   <div class="wrap">
-    <p class="en">Music Mentoring <span>2026</span></p>
-    <h1>K예술영재 프로젝트 음악분야 멘토링 게시판</h1>
+    <p class="en home-link" data-home>Music Mentoring <span>2026</span></p>
+    <h1 class="home-link" data-home>K예술영재 프로젝트 음악분야 멘토링 게시판</h1>
     <p class="lede">네 번의 멘토링이 한 시즌을 이룹니다. 불이 켜진 회차에서 신청과 공지를 확인하세요.</p>
     <div id="previewFlag"></div>
   </div>
   <div class="score-scroll"><div class="score" id="score" aria-label="시즌 일정표"></div></div>
 </header>
 
+<nav class="topnav" id="topnav" hidden aria-label="이동"><div class="wrap"><button type="button" data-home>← 처음으로</button><span class="where-now" id="whereNow"></span></div></nav>
 <main class="wrap" style="padding-top:28px">
   <div id="view"><div class="loading">불러오는 중…</div></div>
   <footer class="site"><span>2026 K예술영재 프로젝트<br>주관 한국예술영재교육연구원</span><button class="link" id="adminToggle">관리자 로그인</button></footer>
@@ -512,6 +534,7 @@
   let board = null;           // { today, sessions, posts }
   let selectedNo = null;
   let newsFilter = 'all';
+  let pickerOpen = null;       // 희망곡 팀 선택이 펼쳐진 회차
 
   const dnum = (d) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
   const daysBetween = (a, b) => Math.round((dnum(b) - dnum(a)) / 86400000);
@@ -652,15 +675,37 @@
 
   function selectSession(no, scroll) {
     selectedNo = no;
-    if (current.view !== 'home') { showHome(); return; }
+    if (current.view !== 'home') { goHome(); return; }
     renderScore();
     renderHome();
     if (scroll) document.querySelector('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  /* ───── 화면 이동 (브라우저 뒤로 가기 지원) ───── */
+  function setNav(label) {
+    $('#topnav').hidden = !label;
+    $('#whereNow').textContent = label || '';
+  }
+  // 첫 화면으로: 지금 기록을 첫 화면으로 바꿔서 뒤로 가기가 꼬이지 않게
+  function goHome() {
+    history.replaceState({ v: 'home' }, '');
+    showHome();
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('popstate', (e) => {
+    const st = e.state || {};
+    if (st.v === 'post' && st.id) showPost(st.id, null, false, true);
+    else showHome();
+  });
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-home]')) { e.preventDefault(); goHome(); }
+  });
+  history.replaceState({ v: 'home' }, '');
+
   /* ───── 첫 화면 ───── */
   async function showHome() {
     current = { view: 'home', postId: null };
+    setNav('');
     if (!board) view.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
     try {
       await loadBoard();
@@ -716,7 +761,8 @@
     // 팀 편성 (teams 시트에 이 회차 팀이 있을 때)
     const teams = (board.teams || []).filter((t) => t.session === s.no);
     const wishOpen = st.key === 'apply' && s.applyType === 'comment';
-    const teamSec = teams.length ? renderTeams(s, teams, wishOpen) : null;
+    // 희망곡 기간에는 버튼을 눌러야 팀이 펼쳐지고, 그 외에는 팀 편성을 바로 보여줌
+    const teamSec = teams.length && !wishOpen ? renderTeams(s, teams, false) : null;
 
     // 2) 공지 · 안내
     const adminBar = adminToken ? el('div', { class: 'admin-bar' },
@@ -734,9 +780,14 @@
         `${s.applyLabel}하기`,
         el('small', {}, `${mdw(s.applyEnd)}까지 · `, el('b', {}, dd(daysBetween(T, s.applyEnd))))));
     } else if (wishOpen && teams.length) {
-      next.append(el('button', { class: 'cta', onclick: () => document.getElementById('teamSec')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
-        `팀을 골라 ${s.applyLabel}하기`,
-        el('small', {}, `위 팀 편성에서 우리 팀을 누르세요 · ${mdw(s.applyEnd)}까지 `, el('b', {}, dd(daysBetween(T, s.applyEnd))))));
+      const opened = pickerOpen === s.no;
+      next.append(el('button', { class: 'cta', 'aria-expanded': String(opened), 'aria-controls': 'teamPicker',
+          onclick: () => { pickerOpen = opened ? null : s.no; renderHome();
+            if (!opened) requestAnimationFrame(() => $('#teamPicker')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })); } },
+        opened ? `${s.applyLabel} 닫기` : `${s.applyLabel}하기`,
+        el('small', {}, opened ? '아래에서 우리 팀을 눌러 주세요' : `${mdw(s.applyEnd)}까지 `,
+          opened ? null : el('b', {}, dd(daysBetween(T, s.applyEnd))))));
+      if (opened) next.append(el('div', { class: 'picker', id: 'teamPicker' }, renderTeams(s, teams, true)));
     } else if (st.key === 'apply' && s.applyType === 'comment') {
       const target = posts.find((p) => p.pinned) || posts[0];
       next.append(target
@@ -804,8 +855,11 @@
       } else if (t.fixedSong) {
         songs.append(el('span', { class: 'k' }, '지정곡'), el('span', { class: 'song' }, t.fixedSong));
       } else if (t.wishes.length) {
-        songs.append(el('span', { class: 'k' }, `희망곡 ${t.wishes.length}`),
-          ...t.wishes.map((w) => el('span', { class: 'song' }, w.song, el('span', { class: 'who' }, w.name))));
+        songs.append(el('span', { class: 'k' }, `팀 희망곡 ${t.wishes.length}`),
+          ...t.wishes.map((w) => el('div', { class: 'row' },
+            el('span', { class: 'song' }, w.song, el('span', { class: 'who' }, w.name)),
+            wishOpen || adminToken ? el('button', { class: 'del', type: 'button',
+              onclick: (e) => { e.stopPropagation(); removeWish(s, w); } }, '삭제') : null)));
       } else if (wishOpen) {
         songs.append(el('span', { class: 'none' }, '아직 남긴 희망곡이 없어요'));
       }
@@ -817,20 +871,41 @@
             el('span', {}, m.name), m.part ? el('small', {}, m.part) : null))
           : el('span', { class: 'meta' }, '구성원 입력 전')),
         songs.childNodes.length ? songs : null,
-        canWish ? el('span', { class: 'add' }, t.wishes.length ? '+ 희망곡 추가하기' : '+ 희망곡 남기기') : null,
+        canWish ? el('button', { class: 'add', type: 'button', onclick: (e) => { e.stopPropagation(); openWish(s, t); } },
+          t.wishes.length ? '+ 희망곡 추가하기' : '+ 희망곡 입력하기') : null,
       ];
       return canWish
-        ? el('button', { class: 'team pick', type: 'button', onclick: () => openWish(s, t), 'aria-label': `${t.team} 희망곡 남기기` }, ...body)
+        ? el('div', { class: 'team pick', onclick: () => openWish(s, t) }, ...body)
         : el('div', { class: 'team' }, ...body);
     };
 
     return el('section', { id: 'teamSec' },
-      el('h3', {}, `팀 편성 · ${teams.length}팀 ${people ? people + '명' : ''}`),
-      wishOpen ? el('p', { class: 'teams-hint' }, '우리 팀 카드를 눌러 희망곡을 남겨 주세요. ',
-        el('b', {}, `${mdw(s.applyEnd)} 마감`)) : null,
+      wishOpen ? el('p', { class: 'teams-hint' }, '우리 팀 카드를 눌러 희망곡을 입력해 주세요. ', el('b', {}, `${mdw(s.applyEnd)} 마감`))
+        : el('h3', {}, `팀 편성 · ${teams.length}팀 ${people ? people + '명' : ''}`),
       ...groups.map((g) => el('div', { class: 'ens' },
         el('div', { class: 'ens-head' }, el('b', {}, g.name), el('span', {}, `${g.teams.length}팀`)),
         el('div', { class: 'teams' }, g.teams.map(card)))));
+  }
+
+  function applyTeams(sessionNo, updated) {
+    board.teams = (board.teams || []).filter((x) => x.session !== sessionNo).concat(updated);
+    if (current.view === 'home') renderHome();
+  }
+
+  async function removeWish(s, w) {
+    try {
+      let updated;
+      if (adminToken) {
+        if (!confirm(`"${w.song}" 희망곡을 삭제할까요?`)) return;
+        updated = await api('adminDeleteTeamWish', adminToken, w.id);
+      } else {
+        const pw = prompt('희망곡을 입력할 때 정한 비밀번호 4자리를 입력하세요.');
+        if (!pw) return;
+        updated = await api('deleteTeamWish', w.id, pw);
+      }
+      applyTeams(s.no, updated);
+      toast('희망곡을 삭제했습니다.');
+    } catch (e) { handleErr(e); }
   }
 
   function openWish(s, t) {
@@ -848,14 +923,12 @@
         btn.disabled = true;
         try {
           const updated = await api('addTeamWish', s.no, t.team, f['who'].value, f['song'].value, f['pw'].value);
-          board.teams = (board.teams || []).filter((x) => x.session !== s.no).concat(updated);
           applyDlg.close();
-          toast(`${t.team} 희망곡을 남겼습니다.`);
-          if (current.view === 'home') renderHome();
-          loadBoard().then(() => current.view === 'home' && renderHome()).catch(() => {});
+          applyTeams(s.no, updated);
+          toast(`${t.team} 희망곡에 기록했습니다.`);
         } catch (e) { toast(e.message, true); btn.disabled = false; }
       } },
-      el('h3', {}, `${t.team} 희망곡 남기기`),
+      el('h3', {}, `${t.team} 희망곡 입력`),
       el('p', { class: 'meta', style: 'margin:-8px 0 16px' }, `${t.ensemble} · ${mdw(s.applyEnd)}까지`),
       el('div', { class: 'fgrid' },
         whoField,
@@ -864,10 +937,10 @@
             placeholder: '작곡가, 곡명, 악장을 적어 주세요.\n예: C. Saint-Saëns, Danse macabre Op. 40' })),
         el('label', {}, el('span', {}, '비밀번호 ', el('small', {}, '(숫자 4자리 · 삭제할 때 필요)')),
           el('input', { name: 'pw', type: 'password', inputmode: 'numeric', pattern: '\\d{4}', maxlength: 4, required: true }))),
-      el('p', { class: 'hint', style: 'margin:12px 0 0' }, '팀원 중 한 명만 남겨도 됩니다. 남긴 희망곡은 공지글 댓글에도 함께 표시돼요.'),
+      el('p', { class: 'hint', style: 'margin:12px 0 0' }, '입력한 곡은 팀 카드의 팀 희망곡에 기록됩니다. 여러 곡을 올려도 돼요.'),
       el('div', { class: 'form-end', style: 'margin-top:16px' },
         el('button', { type: 'button', class: 'btn', onclick: () => applyDlg.close() }, '취소'),
-        el('button', { type: 'submit', class: 'btn primary' }, '희망곡 남기기')));
+        el('button', { type: 'submit', class: 'btn primary' }, '팀 희망곡에 기록')));
     applyDlg.replaceChildren(form);
     applyDlg.showModal();
   }
@@ -995,7 +1068,12 @@
   applyDlg.addEventListener('close', () => applyDlg.classList.remove('xwide'));
 
   /* ───── 상세 + 댓글 ───── */
-  async function showPost(id, data, focusComment) {
+  async function showPost(id, data, focusComment, fromPop) {
+    if (!fromPop && !(current.view === 'post' && current.postId === id)) {
+      // 글쓰기에서 넘어온 경우는 기록을 바꾸고, 그 외에는 새 기록을 쌓음
+      if (current.view === 'editor') history.replaceState({ v: 'post', id }, '');
+      else history.pushState({ v: 'post', id }, '');
+    }
     current = { view: 'post', postId: id };
     if (!data) view.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
     try {
@@ -1007,13 +1085,14 @@
         if (f) { f.scrollIntoView({ block: 'center' }); f.elements['name'].focus({ preventScroll: true }); return; }
       }
       window.scrollTo(0, 0);
-    } catch (e) { handleErr(e); showHome(); }
+    } catch (e) { handleErr(e); goHome(); }
   }
 
   function renderPost(p) {
     const ss = p.session ? sessionByNo(p.session) : null;
     const back = el('div', { class: 'toolbar' },
-      el('button', { class: 'btn', onclick: () => { if (ss) selectedNo = ss.no; showHome(); } }, ss ? `${ROMAN[ss.no]}. ${ss.title}(으)로` : '처음으로'));
+      el('button', { class: 'btn', onclick: () => { if (ss) selectedNo = ss.no; goHome(); } }, ss ? `← ${ss.no}회 ${ss.title} 화면으로` : '← 처음으로'));
+    setNav(ss ? `${ss.no}회 ${ss.title} · ${p.title}` : p.title);
 
     const art = el('article', {},
       ss ? el('div', { class: 'crumb' }, el('span', { class: 'stag' }, `${ss.no}회 · ${ss.title}`)) : null,
@@ -1235,6 +1314,8 @@
 
   /* ───── 글쓰기 / 수정 (관리자) ───── */
   function showEditor(p = null, sessionNo = 0) {
+    history.pushState({ v: 'editor' }, '');
+    setNav(p ? '글 수정' : '새 글 작성');
     current = { view: 'editor', postId: p && p.id };
     const sessSel = el('select', { name: 'session', class: 'sess-sel' },
       el('option', { value: '0' }, '공통 공지 (전체)'),
@@ -1341,7 +1422,7 @@
       drop, fileInput, listEl,
       el('label', { class: 'check' }, el('input', { type: 'checkbox', name: 'pinned' }), '목록 맨 위에 고정'),
       el('div', { class: 'form-end' },
-        el('button', { type: 'button', class: 'btn', onclick: () => (p ? showPost(p.id) : showHome()) }, '취소'),
+        el('button', { type: 'button', class: 'btn', onclick: () => (p ? showPost(p.id) : goHome()) }, '취소'),
         submitBtn
       )
     );
