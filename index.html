@@ -848,8 +848,12 @@
   }
 
   /* ───── 팀 편성 · 희망곡 ───── */
-  const normEns = (x) => String(x || '').replace(/\s/g, '');
+  // 편성 이름 비교: 띄어쓰기와 괄호 속 인원 표기는 무시 (예: '피아노 트리오(1)' = '피아노트리오')
+  const normEns = (x) => String(x || '').replace(/\(.*?\)|（.*?）/g, '').replace(/\s/g, '');
   const songsFor = (s, t) => (board.songs || []).filter((x) => x.session === s.no && normEns(x.ensemble) === normEns(t.ensemble));
+  // 팀의 지정곡: teams 탭 fixedSong 우선, 없으면 songs 탭에서 detail이 '지정곡'인 곡
+  const isFixedRow = (x) => /^지정곡$/.test(String(x.detail || '').trim());
+  const fixedOf = (s, t) => t.fixedSong || (songsFor(s, t).find((x) => x.song && isFixedRow(x)) || {}).song || '';
 
   function groupTeams(teams) {
     const groups = [];
@@ -871,9 +875,9 @@
         onclick: (e) => { e.stopPropagation(); removeWish(s, w); } }, '삭제') : null));
     let key = '', keyCls = '', extra = null;
     if (t.selectedSong) { key = '확정곡'; keyCls = 'sel'; songs.append(el('span', { class: 'song' }, t.selectedSong)); }
-    else if (t.fixedSong) {
+    else if (fixedOf(s, t)) {
       key = '지정곡';
-      songs.append(el('span', { class: 'song' }, t.fixedSong));
+      songs.append(el('span', { class: 'song' }, fixedOf(s, t)));
       extra = el('div', { class: 'team-sec' }, el('span', { class: 'k' }, `팀 희망곡 ${t.wishes.length}`),
         el('div', { class: 'songs' }, ...(t.wishes.length ? wishRows() : [el('span', { class: 'none' }, '아직 선택하지 않았어요')])));
     } else {
@@ -893,7 +897,7 @@
         t.wishes.length ? '희망곡 추가 입력' : '희망곡 입력')) : null,
     ];
     return pick
-      ? el('div', { class: 'team pick' + (t.fixedSong ? ' fixed' : ''), role: 'button', tabindex: '0', 'aria-label': `${t.team} 희망곡 입력`,
+      ? el('div', { class: 'team pick' + (fixedOf(s, t) ? ' fixed' : ''), role: 'button', tabindex: '0', 'aria-label': `${t.team} 희망곡 입력`,
           onclick: () => wishStep2(s, t),
           onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wishStep2(s, t); } } }, ...parts)
       : el('div', { class: 'team' }, ...parts);
@@ -963,9 +967,13 @@
   function wishStep2(s, t) {
     wishState = t;
     // 지정곡이 있는 팀은 그 곡만 목록에 두고 기본 선택
-    const fixed = !!t.fixedSong;
-    const list = fixed ? [{ song: t.fixedSong, detail: '' }] : songsFor(s, t).filter((x) => x.song);
-    const guide = fixed ? null : songsFor(s, t).find((x) => !x.song && x.detail);
+    // 목록: [지정곡] → 그 밖의 지정곡 목록 → 기타
+    const fixedSong = fixedOf(s, t);
+    const fixed = !!fixedSong;
+    const list = [];
+    if (fixed) list.push({ song: fixedSong, detail: '', fixed: true });
+    songsFor(s, t).filter((x) => x.song && x.song !== fixedSong).forEach((x) => list.push({ song: x.song, detail: isFixedRow(x) ? '' : x.detail, fixed: isFixedRow(x) }));
+    const guide = songsFor(s, t).find((x) => !x.song && x.detail);
     const OTHER = '__other__';
 
     const whoField = t.members.length
@@ -978,7 +986,7 @@
     // 곡: 지정곡 드롭다운 + 기타(직접 입력)
     const sel = list.length ? el('select', { name: 'pick', required: true },
       el('option', { value: '' }, '곡을 선택하세요'),
-      list.map((x, i) => el('option', { value: String(i) }, fixed ? `[지정곡] ${x.song}` : x.song)),
+      list.map((x, i) => el('option', { value: String(i) }, x.fixed ? `[지정곡] ${x.song}` : x.song)),
       el('option', { value: OTHER }, '기타 (지정곡 외 직접 입력)')) : null;
     const fixedNote = fixed ? el('div', { class: 'song-guide' }, '지정곡으로 진행하려면 지정곡을, 다른 곡을 희망하면 기타를 선택해 주세요.') : null;
     const detailBox = el('div', { class: 'song-guide', hidden: true });
@@ -1011,7 +1019,7 @@
           const x = list[+sel.value];
           if (!x) { toast('곡을 선택해 주세요.', true); return; }
           const memo = f['memo'].value.trim();
-          song = (fixed ? '[지정곡] ' : '') + x.song + (memo ? ` (${memo})` : '');
+          song = (x.fixed ? '[지정곡] ' : '') + x.song + (memo ? ` (${memo})` : '');
         } else {
           song = f['other'].value.trim();
           if (!song) { toast('희망곡을 입력해 주세요.', true); return; }
