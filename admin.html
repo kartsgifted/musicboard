@@ -155,6 +155,31 @@
   .dirty { color: var(--coral); font-size: 14px; font-weight: 600; }
   .note { font-size: 13px; color: var(--muted); margin: 10px 0 0; line-height: 1.6; }
 
+  /* 일정 관리 */
+  .sched { display: grid; gap: 16px; }
+  .scard { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .scard-top { display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: var(--teal-deep); color: #fff; flex-wrap: wrap; }
+  .scard-top .rn { font-family: var(--head); font-weight: 800; font-size: 22px; color: var(--apricot); }
+  .scard-top b { font-family: var(--head); font-size: 17px; }
+  .scard-top .sum { font-size: 13px; opacity: .85; margin-left: auto; }
+  .scard-body { padding: 16px 18px; display: grid; gap: 14px; }
+  .sgrid { display: grid; grid-template-columns: 2fr 2fr 1fr 2fr; gap: 10px; }
+  .sgrid2 { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 10px; }
+  .fl { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .fl input, .fl select, .fl textarea { font-size: 14px; color: var(--ink); font-weight: 400; padding: 7px 9px; border: 1px solid var(--line); border-radius: 4px; background: #fff; width: 100%; }
+  .fl textarea { min-height: 54px; resize: vertical; font-family: inherit; }
+  .ms-title { font-family: var(--head); font-size: 14px; margin: 4px 0 0; }
+  table.ms { table-layout: fixed; min-width: 760px; }
+  table.ms th:nth-child(1) { width: 17%; } table.ms th:nth-child(2) { width: 17%; } table.ms th:nth-child(3) { width: 17%; }
+  table.ms th:nth-child(4) { width: 41%; } table.ms th:nth-child(5) { width: 8%; }
+  table.ms td { padding: 5px 6px; }
+  table.ms input, table.ms select { width: 100%; padding: 6px 8px; font-size: 14px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+  table.ms tr.ev td { background: #F4F9FA; }
+  .changed { border-color: var(--coral) !important; background: #FFF6F6 !important; }
+  .sticky-save { position: sticky; bottom: 0; background: #fff; border-top: 1px solid var(--line); margin: 20px -24px -24px; padding: 14px 24px; display: flex; gap: 10px; align-items: center; border-radius: 0 0 8px 8px; }
+  .sticky-save .sp { flex: 1; }
+  @media (max-width: 900px) { .sgrid, .sgrid2 { grid-template-columns: 1fr 1fr; } }
+
   /* 참가 신청 */
   .app-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
   .box { border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
@@ -204,6 +229,7 @@
   let board = null, apps = [];
   let tab = 'posts', postFilter = 'all', appSession = null, appQuery = '';
   let teamSession = null, teamDraft = null, teamDirty = false;   // 팀 편성 관리
+  let sched = null, schedDirty = false;                            // 일정 관리
 
   const $ = (s) => document.querySelector(s);
   const app = $('#app');
@@ -295,7 +321,7 @@
     app.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
     try {
       [board, apps] = await Promise.all([api('getBoard'), api('adminGetApplications', token, 0)]);
-      teamDraft = null; teamDirty = false;
+      teamDraft = null; teamDirty = false; sched = null; schedDirty = false;
       const formSessions = board.sessions.filter((s) => s.applyType === 'form');
       if (!appSession || !formSessions.some((s) => s.no === appSession)) appSession = formSessions[0] ? formSessions[0].no : null;
       render();
@@ -325,16 +351,18 @@
           el('div', {}, el('b', {}, String(apps.filter((a) => a.session === s.no).length)), el('span', {}, `${s.no}회`)))),
         el('div', { class: 'l' }, el('b', {}, '참가 신청'), '회차별 인원')));
 
-    const tabDefs = [['posts', '전체 글 관리', posts.length], ['wishes', '희망곡 현황', teams.length ? `${wishTeams}/${teams.length}` : ''], ['apps', '참가 신청', apps.length], ['teams', '팀 편성 관리', '']];
+    const tabDefs = [['posts', '전체 글 관리', posts.length], ['wishes', '희망곡 현황', teams.length ? `${wishTeams}/${teams.length}` : ''], ['apps', '참가 신청', apps.length], ['teams', '팀 편성 관리', ''], ['sched', '일정 관리', '']];
     const tabs = el('div', { class: 'tabs', role: 'tablist' }, tabDefs.map(([k, label, n]) =>
       el('button', { class: 'tab', role: 'tab', 'aria-selected': String(tab === k), onclick: () => {
         if (tab === 'teams' && k !== 'teams' && teamDirty && !confirm('저장하지 않은 팀 편성 변경이 있습니다. 이동할까요?')) return;
+        if (tab === 'sched' && k !== 'sched' && schedDirty && !confirm('저장하지 않은 일정 변경이 있습니다. 이동할까요?')) return;
         if (k !== 'teams') { teamDraft = null; teamDirty = false; }
+        if (k !== 'sched') { sched = null; schedDirty = false; }
         tab = k; render(); } },
         label, n !== '' ? el('span', { class: 'n' }, String(n)) : null)));
 
     const pane = el('section', { class: 'pane', role: 'tabpanel' },
-      tab === 'posts' ? postsPane() : tab === 'wishes' ? wishesPane() : tab === 'teams' ? teamsPane() : appsPane());
+      tab === 'posts' ? postsPane() : tab === 'wishes' ? wishesPane() : tab === 'teams' ? teamsPane() : tab === 'sched' ? schedPane() : appsPane());
 
     app.replaceChildren(el('main', {}, stats, tabs, pane));
   }
@@ -654,7 +682,121 @@
     catch (e) { fail(e); }
   }
 
-  window.addEventListener('beforeunload', (e) => { if (teamDirty) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', (e) => { if (teamDirty || schedDirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ───── 5. 일정 관리 ─────
+   * 회차 정보(sessions 탭)와 날짜 일정(milestones 탭)을 한 화면에서 고침.
+   * 날짜 일정은 화면 표시와 실제 운영(신청 가능 기간·진행일)에 함께 쓰임 */
+  const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+  const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+  const mdw = (d) => { if (!d) return ''; const t = new Date(d + 'T00:00:00'); return `${t.getMonth() + 1}/${t.getDate()}(${WEEK[t.getDay()]})`; };
+  const MODE_OPTS = [['comment', '희망곡 작성 (팀 카드에서 입력)'], ['solo', '개인 신청'], ['team', '팀 신청 (팀원 중 한 명)'], ['', '신청 없음']];
+  const TYPE_OPTS = [['apply', '신청 기간'], ['notice', '공지'], ['event', '멘토링 당일']];
+
+  async function loadSched() {
+    try {
+      const r = await api('adminGetSchedule', token);
+      sched = {
+        sessions: r.sessions.map((s) => Object.assign({}, s, { applyType: s.applyType === 'form' ? (/실내악/.test(s.title) ? 'team' : 'solo') : s.applyType })),
+        milestones: r.milestones.map((m) => Object.assign({}, m)),
+      };
+      schedDirty = false;
+      render();
+    } catch (e) { fail(e); }
+  }
+
+  function schedPane() {
+    if (!sched) { loadSched(); return el('div', { class: 'loading' }, '일정을 불러오는 중…'); }
+    const dirty = () => { if (!schedDirty) { schedDirty = true; const d = document.querySelector('.sticky-save .dirty'); if (d) d.hidden = false; } };
+    const bind = (obj, key, node, after) => {
+      node.addEventListener(node.tagName === 'SELECT' || node.type === 'date' ? 'change' : 'input', () => {
+        obj[key] = node.value; node.classList.add('changed'); dirty(); if (after) after(); });
+      return node;
+    };
+    const field = (label, obj, key, opts = {}) => {
+      const n = opts.select
+        ? el('select', {}, opts.select.map(([v, t]) => el('option', { value: v, selected: String(obj[key] || '') === v }, t)))
+        : opts.area ? el('textarea', { maxlength: 500 }) : el('input', { value: obj[key] || '', placeholder: opts.ph || '', maxlength: 80 });
+      if (opts.area) n.value = obj[key] || '';
+      return el('label', { class: 'fl' + (opts.cls ? ' ' + opts.cls : '') }, label, bind(obj, key, n, opts.after));
+    };
+
+    const sumText = (s) => {
+      const mine = sched.milestones.filter((m) => m.session === s.no);
+      const ap = mine.find((m) => m.type === 'apply'), ev = mine.find((m) => m.type === 'event');
+      return [ap ? `신청 ${mdw(ap.date)}~${mdw(ap.endDate)}` : null, ev ? `진행 ${mdw(ev.date)}` : '진행일 없음'].filter(Boolean).join(' · ');
+    };
+    const cards = sched.sessions.map((s) => {
+      const ms = sched.milestones.filter((m) => m.session === s.no).sort((a, b) => (a.date > b.date ? 1 : -1));
+      const sumEl = el('span', { class: 'sum' }, sumText(s));
+      const upd = () => { sumEl.textContent = sumText(s); };
+
+      const rows = ms.map((m) => {
+        const dateIn = el('input', { type: 'date', value: m.date || '' });
+        const endIn = el('input', { type: 'date', value: m.endDate || '', disabled: m.type === 'event' });
+        const typeSel = el('select', {}, TYPE_OPTS.map(([v, t]) => el('option', { value: v, selected: m.type === v }, t)));
+        const labelIn = el('input', { value: m.label || '', maxlength: 60, placeholder: '예: 전공실기 멘토링 신청' });
+        // 입력 중 화면을 다시 그리지 않고 제자리에서만 갱신 (날짜를 타이핑하는 도중 포커스가 빠지지 않게)
+        const tr = el('tr', { class: m.type === 'event' ? 'ev' : '' });
+        bind(m, 'type', typeSel, () => {
+          endIn.disabled = m.type === 'event';
+          if (m.type === 'event') { m.endDate = ''; endIn.value = ''; }
+          tr.className = m.type === 'event' ? 'ev' : ''; upd(); });
+        bind(m, 'date', dateIn, upd);
+        bind(m, 'endDate', endIn, upd);
+        bind(m, 'label', labelIn);
+        tr.append(
+          el('td', {}, typeSel), el('td', {}, dateIn), el('td', {}, endIn), el('td', {}, labelIn),
+          el('td', {}, el('button', { class: 'btn sm danger', onclick: () => {
+            sched.milestones.splice(sched.milestones.indexOf(m), 1); schedDirty = true; render(); } }, '빼기')));
+        return tr;
+      });
+
+      return el('section', { class: 'scard' },
+        el('div', { class: 'scard-top' }, el('span', { class: 'rn' }, ROMAN[s.no] || s.no), el('b', {}, `${s.no}회 ${s.title}`), sumEl),
+        el('div', { class: 'scard-body' },
+          el('div', { class: 'sgrid' },
+            field('제목', s, 'title', { after: () => {} }),
+            field('영문 이름', s, 'en', { ph: '예: Ensemble Mentoring' }),
+            field('시간', s, 'time', { ph: '예: 오후' }),
+            field('장소', s, 'place', { ph: '예: 한예종 서초동캠퍼스' })),
+          el('div', { class: 'sgrid2' },
+            field('신청 방식', s, 'applyType', { select: MODE_OPTS }),
+            field('신청 버튼 문구', s, 'applyLabel', { ph: '예: 멘토링 신청' }),
+            field('소개 (선택)', s, 'summary', { area: true })),
+          el('p', { class: 'ms-title' }, '날짜 일정 (오선 일정표 · 진행 순서 · 신청 가능 기간에 모두 반영)'),
+          el('div', { class: 'tbl-wrap' }, el('table', { class: 'ms' },
+            el('thead', {}, el('tr', {}, ['구분', '날짜 (시작)', '마감일', '내용', ''].map((x) => el('th', {}, x)))),
+            el('tbody', {}, rows.length ? rows : el('tr', {}, el('td', { colspan: 5, style: 'color:var(--muted)' }, '일정이 없습니다.'))))),
+          el('div', {}, el('button', { class: 'btn sm', onclick: () => {
+            sched.milestones.push({ session: s.no, date: '', endDate: '', label: '', type: 'notice' }); schedDirty = true; render(); } }, '+ 일정 추가'))));
+    });
+
+    const save = el('div', { class: 'sticky-save' },
+      el('span', { class: 'dirty', hidden: !schedDirty }, '저장하지 않은 변경이 있어요'),
+      el('span', { class: 'sp' }),
+      el('button', { class: 'btn', onclick: () => { if (!schedDirty || confirm('변경한 내용을 버리고 다시 불러올까요?')) { sched = null; schedDirty = false; render(); } } }, '다시 불러오기'),
+      el('button', { class: 'btn primary', onclick: saveSched }, '일정 저장'));
+
+    const note = el('p', { class: 'note', style: 'margin:0 0 14px' },
+      '각 회차에는 멘토링 당일이 하나 있어야 하고, 신청 기간은 하나까지 둘 수 있어요. 저장하면 게시판의 오선 일정표, 카드 상태, 신청 가능 기간이 바로 바뀝니다.');
+    return [note, el('div', { class: 'sched' }, cards), save];
+  }
+
+  async function saveSched() {
+    const btn = document.querySelector('.sticky-save .btn.primary');
+    btn.disabled = true;
+    try {
+      await api('adminSaveSchedule', token,
+        sched.sessions.map((s) => ({ no: s.no, title: s.title, en: s.en, time: s.time, place: s.place, applyType: s.applyType, applyLabel: s.applyLabel, summary: s.summary })),
+        sched.milestones.map((m) => ({ session: m.session, date: m.date, endDate: m.endDate, label: m.label, type: m.type })));
+      schedDirty = false;
+      toast('일정을 저장했습니다.');
+      const keepTab = tab;
+      await loadAll();
+      tab = keepTab; render();
+    } catch (e) { fail(e); btn.disabled = false; }
+  }
 
   async function cancelApp(a) {
     if (!confirm(`${a.team || a.name}의 신청을 취소 처리할까요? (시트에는 기록이 남습니다)`)) return;
