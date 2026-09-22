@@ -865,14 +865,23 @@
   /* ───── 팀 편성 · 희망곡 ───── */
   // 편성 이름 비교: 띄어쓰기와 괄호 속 인원 표기는 무시 (예: '피아노 트리오(1)' = '피아노트리오')
   const normEns = (x) => String(x || '').replace(/\(.*?\)|（.*?）/g, '').replace(/\s/g, '');
-  const songsFor = (s, t) => (board.songs || []).filter((x) => x.session === s.no && normEns(x.ensemble) === normEns(t.ensemble));
+  // 회차별 지정곡: 그 회차 행이 있으면 그대로, 없으면(팀 신청 회차) 1회차 지정곡을 이어받음
+  function songsOfSession(no) {
+    const own = (board.songs || []).filter((x) => x.session === no);
+    if (own.length) return own;
+    const s = board.sessions.find((x) => x.no === no);
+    if (!s || s.applyMode !== 'team') return [];
+    const base = baseTeamSession();
+    return (board.songs || []).filter((x) => x.session === base);
+  }
+  const songsFor = (s, t) => songsOfSession(s.no).filter((x) => normEns(x.ensemble) === normEns(t.ensemble));
   // 팀의 지정곡: teams 탭 fixedSong 우선, 없으면 songs 탭에서 detail이 '지정곡'인 곡
   const isFixedRow = (x) => /^지정곡$/.test(String(x.detail || '').trim());
   // 팀에 배정된 지정곡: 관리자 '지정곡 관리'(songs 탭: 회차·편성·팀 조건) + 예전 방식(teams 탭 fixedSong)
   function songsForTeam(s, t) {
     const out = [];
     String(t.fixedSong || '').split(/\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => out.push({ song: x, detail: '' }));
-    (board.songs || []).filter((x) => x.session === s.no && x.song
+    songsOfSession(s.no).filter((x) => x.song
         && (!x.ensemble || normEns(x.ensemble) === normEns(t.ensemble))
         && (!(x.teams || []).length || x.teams.includes(t.team)))
       .forEach((x) => { if (!out.some((o) => o.song === x.song)) out.push({ song: x.song, detail: isFixedRow(x) ? '' : x.detail }); });
