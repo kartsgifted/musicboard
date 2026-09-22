@@ -795,7 +795,7 @@
     }));
 
     // 팀 편성 (teams 시트에 이 회차 팀이 있을 때)
-    const teams = (board.teams || []).filter((t) => t.session === s.no);
+    const teams = teamsFor(s.no);
     const wishOpen = st.key === 'apply' && s.applyType === 'comment';
     // 희망곡 기간에는 버튼을 눌러야 팀이 펼쳐지고, 그 외에는 팀 편성을 바로 보여줌
     // 희망곡 작성 기간에는 버튼을 눌러야 팀이 보이고, 기간 밖에는 팀 편성을 바로 보여줌
@@ -869,10 +869,24 @@
   const isFixedRow = (x) => /^지정곡$/.test(String(x.detail || '').trim());
   const fixedOf = (s, t) => t.fixedSong || (songsFor(s, t).find((x) => x.song && isFixedRow(x)) || {}).song || '';
 
+  // 회차별 팀: teams 탭에 그 회차 행이 있으면 그대로, 없으면(팀 신청 회차) 1회차 편성을 이어받음
+  function baseTeamSession() {
+    return (board.teams || []).reduce((n, t) => Math.min(n, t.session), 99);
+  }
+  function teamsFor(no) {
+    const own = (board.teams || []).filter((t) => t.session === no);
+    if (own.length) return own;
+    const s = board.sessions.find((x) => x.no === no);
+    if (!s || s.applyMode !== 'team') return [];
+    const base = baseTeamSession();
+    return (board.teams || []).filter((t) => t.session === base)
+      .map((t) => Object.assign({}, t, { session: no, fixedSong: '', selectedSong: '', wishes: [], inherited: true }));
+  }
+
   // 같은 회차에서 두 팀 이상에 이름이 나오는 학생 → { 이름: [팀, 팀] }
   function dupMap(sessionNo) {
     const by = {};
-    (board.teams || []).filter((t) => t.session === sessionNo).forEach((t) =>
+    teamsFor(sessionNo).forEach((t) =>
       new Set(t.members.map((m) => m.name)).forEach((n) => (by[n] = by[n] || []).push(t.team)));
     Object.keys(by).forEach((n) => { if (by[n].length < 2) delete by[n]; });
     return by;
@@ -902,7 +916,11 @@
       mode === 'edit' || adminToken ? el('button', { class: 'del', type: 'button',
         onclick: (e) => { e.stopPropagation(); removeWish(s, w); } }, '삭제') : null));
     let key = '', keyCls = '', extra = null;
-    if (t.selectedSong) { key = '확정곡'; keyCls = 'sel'; songs.append(el('span', { class: 'song' }, t.selectedSong)); }
+    const noWish = s.applyType !== 'comment';   // 희망곡을 받지 않는 회차(3·4회): 지정곡만 표시
+    if (noWish && !t.selectedSong) {
+      key = '지정곡';
+      songs.append(fixedOf(s, t) ? el('span', { class: 'song' }, fixedOf(s, t)) : el('span', { class: 'none' }, '추후 안내'));
+    } else if (t.selectedSong) { key = '확정곡'; keyCls = 'sel'; songs.append(el('span', { class: 'song' }, t.selectedSong)); }
     else if (fixedOf(s, t)) {
       key = '지정곡';
       songs.append(el('span', { class: 'song' }, fixedOf(s, t)));
@@ -1116,9 +1134,8 @@
   function rosterNames() {
     return [...new Set((board.teams || []).flatMap((t) => t.members.map((m) => m.name)))].sort((x, y) => x.localeCompare(y, 'ko'));
   }
-  function rosterTeams() {
-    const firstNo = (board.teams || []).reduce((n, t) => Math.min(n, t.session), 99);
-    return (board.teams || []).filter((t) => t.session === firstNo);
+  function rosterTeams(no) {
+    return teamsFor(no);
   }
 
   function openApply(s) {
@@ -1142,7 +1159,7 @@
     let teamFields = [];
     let onNameInput = () => {};
     if (team) {
-      const teams = rosterTeams();
+      const teams = rosterTeams(s.no);
       const ensembles = [...new Set(teams.map((t) => t.ensemble))];
       const teamSel = el('select', { name: 'team' });
       const ensSel = el('input', { name: 'ensemble', required: true, maxlength: 40, list: 'ensList', placeholder: '예: 피아노 트리오' });
@@ -1152,14 +1169,18 @@
       const teamWrap = el('label', { class: 'full', hidden: true }, '우리 팀', teamSel);
 
       // 팀이 정해지면 편성·팀원은 명단 그대로 (수정 불가), 직접 입력일 때만 풀림
+      let lastAuto = '';
       const lock = (on) => [ensSel, members].forEach((x) => { x.readOnly = on; x.style.background = on ? 'var(--teal-soft)' : ''; });
       const fillTeam = (t) => {
         if (!t) { lock(false); return; }
         ensSel.value = t.ensemble;
         members.value = t.members.map((m) => m.name).join(', ');
         lock(true);
+        // 곡목: 비어 있거나 앞서 자동으로 채운 값 그대로면 이 팀의 지정곡으로 바꿈
         const sa = form.elements['song'];
-        if (!sa.value) sa.value = t.selectedSong || fixedOf({ no: t.session }, t) || '';
+        const next = t.selectedSong || fixedOf(s, t) || '';
+        if (!sa.value || sa.value === lastAuto) sa.value = next;
+        lastAuto = next;
       };
       const setOptions = (list, withOther) => {
         teamSel.replaceChildren(...[
