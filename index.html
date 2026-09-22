@@ -466,7 +466,7 @@
 <nav class="topnav" id="topnav" hidden aria-label="이동"><div class="wrap"><button type="button" data-home>← 처음으로</button><span class="where-now" id="whereNow"></span></div></nav>
 <main class="wrap" style="padding-top:28px">
   <div id="view"><div class="loading">불러오는 중…</div></div>
-  <footer class="site"><span>2026 K예술영재 프로젝트<br>주관 한국예술영재교육연구원</span><button class="link" id="adminToggle">관리자 로그인</button></footer>
+  <footer class="site"><span>2026 K예술영재 프로젝트<br>주관 한국예술영재교육연구원</span><span class="foot-links"><button class="link" id="adminToggle" hidden>관리자 모드 끝내기</button> <a class="link" href="admin.html">관리자 페이지</a></span></footer>
 </main>
 
 <dialog id="loginDlg">
@@ -545,7 +545,7 @@
 
   function setAdmin(token) {
     adminToken = token;
-    $('#adminToggle').textContent = token ? '관리자 로그아웃' : '관리자 로그인';
+    $('#adminToggle').hidden = !token;
     render();
   }
 
@@ -1064,7 +1064,9 @@
     return el('section', { class: 'news' },
       el('div', { class: 'news-head' },
         el('h2', {}, '전체 글 관리'),
-        adminToken ? el('button', { class: 'btn primary', onclick: () => showEditor(null, 0) }, '공통 공지 쓰기') : null),
+        adminToken ? el('span', { style: 'display:flex;gap:8px' },
+          el('a', { class: 'btn', href: 'admin.html', style: 'text-decoration:none' }, '관리자 페이지'),
+          el('button', { class: 'btn primary', onclick: () => showEditor(null, 0) }, '공통 공지 쓰기')) : null),
       el('div', { style: 'margin-bottom:12px' }, chips),
       posts.length ? postList(posts, false) : el('div', { class: 'empty small' }, '해당하는 글이 없습니다.'));
   }
@@ -1548,15 +1550,10 @@
 
   /* ───── 관리자 로그인 ───── */
   const dlg = $('#loginDlg');
-  $('#adminToggle').addEventListener('click', async () => {
-    if (adminToken) {
-      api('adminLogout', adminToken).catch(() => {});
-      setAdmin(null);
-      toast('로그아웃했습니다.');
-    } else {
-      $('#adminPw').value = '';
-      dlg.showModal();
-    }
+  $('#adminToggle').addEventListener('click', () => {
+    // 게시판 쪽 관리자 모드만 끝냄 (관리자 페이지 로그인은 그대로)
+    setAdmin(null);
+    toast('관리자 모드를 끝냈습니다.');
   });
   $('#loginCancel').addEventListener('click', () => dlg.close());
   $('#loginForm').addEventListener('submit', async (ev) => {
@@ -1570,7 +1567,27 @@
   });
 
   if (PREVIEW) $('#previewFlag').append(el('span', { class: 'preview-flag' }, `미리보기: ${PREVIEW} 기준 화면`));
-  showHome();
+  // 주소로 바로 열기: ?post=글번호 / 관리자 페이지에서 넘어온 글쓰기: ?edit=글번호, ?new=회차
+  (async function init() {
+    const q = new URLSearchParams(location.search);
+    let handoff = null;
+    try { handoff = JSON.parse(localStorage.getItem('mm_admin') || 'null'); localStorage.removeItem('mm_admin'); } catch (e) {}
+    if (handoff && handoff.token && Date.now() - handoff.at < 60000 && (q.has('edit') || q.has('new'))) {
+      try {
+        await api('adminPing', handoff.token);
+        adminToken = handoff.token;
+        $('#adminToggle').hidden = false;
+        await loadBoard();
+        const clean = location.pathname + (PREVIEW ? `?today=${PREVIEW}` : '');
+        history.replaceState({ v: 'home' }, '', clean);
+        if (q.has('edit')) showEditor(await api('getPost', q.get('edit')));
+        else showEditor(null, Number(q.get('new')) || 0);
+        return;
+      } catch (e) { toast(e.message, true); }
+    }
+    if (q.get('post')) { await showHome(); showPost(q.get('post')); return; }
+    showHome();
+  })();
 </script>
 </body>
 </html>
