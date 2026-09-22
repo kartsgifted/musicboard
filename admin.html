@@ -168,7 +168,7 @@
   .sc { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; background: #fff; }
   .sc-row1 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto; gap: 10px; align-items: end; }
   .sc-row2 { display: grid; grid-template-columns: auto minmax(160px, 220px) minmax(0, 1fr); gap: 14px; align-items: start; }
-  .sc-row2.two { grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); }
+  .sc-row2.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .sc .grp { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
   .sc .boxes { display: flex; gap: 6px; flex-wrap: wrap; }
   .sc .boxes label { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; white-space: nowrap; }
@@ -735,6 +735,9 @@
     return board.sessions.filter((s) => s.no === base || s.applyMode === 'team' || (board.teams || []).some((t) => t.session === s.no));
   };
 
+  const sameEns = (a, b) => String(a || '').replace(/\s/g, '') === String(b || '').replace(/\s/g, '');
+  const ensOf = (x) => (x.ensembles && x.ensembles.length ? x.ensembles : String(x.ensemble || '').split(/[,，]/).map((e) => e.trim()).filter(Boolean));
+
   // 회차별 지정곡: 전용 곡이 없으면(팀 신청 회차) 1회차 곡을 이어받음
   function songsOfSession(no) {
     const own = (board.songs || []).filter((x) => x.session === no);
@@ -754,7 +757,7 @@
     const inherited = !ownRows.length && s.no !== base;
     if (!songDraft) {
       songDraft = songsOfSession(s.no).filter((x) => x.song).map((x) => ({
-        song: x.song, detail: /^지정곡$/.test(x.detail) ? '' : x.detail, ensemble: x.ensemble, teams: (x.teams || []).slice() }));
+        song: x.song, detail: /^지정곡$/.test(x.detail) ? '' : x.detail, ensembles: ensOf(x).slice(), teams: (x.teams || []).slice() }));
       songDirty = false;
     }
     const markDirty = (card) => { songDirty = true; if (card) card.classList.add('changed'); const d = document.querySelector('.songbar .dirty'); if (d) d.hidden = false; };
@@ -780,11 +783,11 @@
       const scope = el('div', { class: 'scope' });
       const teamBox = el('div', { class: 'boxes' });
       const describe = () => {
-        const who = e.teams.length ? e.teams.join(', ') : (e.ensemble ? `${e.ensemble} 전체 팀` : '모든 팀');
+        const who = e.teams.length ? e.teams.join(', ') : (e.ensembles.length ? `${e.ensembles.join(', ')} 전체 팀` : '모든 편성의 모든 팀');
         scope.textContent = `${s.no}회 · ${who}에 지정곡으로 적용`;
       };
       const drawTeams = () => {
-        const cand = teams.filter((t) => !e.ensemble || t.ensemble.replace(/\s/g, '') === e.ensemble.replace(/\s/g, '')).map((t) => t.team);
+        const cand = teams.filter((t) => !e.ensembles.length || e.ensembles.some((x) => sameEns(x, t.ensemble))).map((t) => t.team);
         const missing = e.teams.filter((x) => !cand.includes(x));   // 이 회차 편성에 없는 팀 (이어받은 곡에서 생길 수 있음)
         teamBox.replaceChildren(...cand.map((name) => {
           const c = el('input', { type: 'checkbox', checked: e.teams.includes(name) });
@@ -799,9 +802,15 @@
       songIn.addEventListener('input', () => { e.song = songIn.value; markDirty(card); });
       const detailIn = el('input', { value: e.detail, placeholder: '선택 안내 (선택) 예: 中 선택 2', maxlength: 300 });
       detailIn.addEventListener('input', () => { e.detail = detailIn.value; markDirty(card); });
-      const ensSel = el('select', {}, el('option', { value: '' }, '모든 편성'),
-        allEns.concat(e.ensemble && !allEns.includes(e.ensemble) ? [e.ensemble] : []).map((x) => el('option', { value: x, selected: x === e.ensemble }, x)));
-      ensSel.addEventListener('change', () => { e.ensemble = ensSel.value; e.teams = []; markDirty(card); drawTeams(); });
+      // 편성: 여러 개 체크 가능, 아무것도 체크하지 않으면 모든 편성
+      const ensNames = allEns.concat(e.ensembles.filter((x) => !allEns.some((a) => sameEns(a, x))));
+      const ensBox = el('div', { class: 'boxes' }, ensNames.map((name) => {
+        const c = el('input', { type: 'checkbox', checked: e.ensembles.some((x) => sameEns(x, name)) });
+        c.addEventListener('change', () => {
+          e.ensembles = c.checked ? e.ensembles.concat(name) : e.ensembles.filter((x) => !sameEns(x, name));
+          markDirty(card); drawTeams(); });
+        return el('label', {}, c, name);
+      }));
 
       card.append(
         el('div', { class: 'sc-row1' },
@@ -809,7 +818,7 @@
           el('label', { class: 'fl' }, '선택 안내', detailIn),
           el('button', { class: 'btn sm danger', onclick: () => { songDraft.splice(songDraft.indexOf(e), 1); songDirty = true; render(); } }, '삭제')),
         el('div', { class: 'sc-row2 two' },
-          el('label', { class: 'fl' }, '편성', ensSel),
+          el('div', { class: 'grp' }, el('span', {}, '편성 ', el('small', { style: 'font-weight:400' }, '(선택하지 않으면 모든 편성)')), ensBox),
           el('div', { class: 'grp' }, el('span', {}, '팀 ', el('small', { style: 'font-weight:400' }, '(선택하지 않으면 편성 전체)')), teamBox)),
         scope);
       drawTeams();
@@ -818,7 +827,7 @@
 
     const bar = el('div', { class: 'editbar songbar' },
       el('button', { class: 'btn', onclick: () => {
-        songDraft.push({ song: '', detail: '', ensemble: '', teams: [] }); songDirty = true; render();
+        songDraft.push({ song: '', detail: '', ensembles: [], teams: [] }); songDirty = true; render();
         requestAnimationFrame(() => { const c = document.querySelectorAll('.sc'); c[c.length - 1]?.querySelector('input')?.focus(); }); } }, '+ 지정곡 추가'),
       el('span', { class: 'dirty', hidden: !songDirty }, '저장하지 않은 변경이 있어요'),
       el('span', { class: 'sp' }),
@@ -838,7 +847,7 @@
 
     const notes = el('div', {},
       inherited ? el('p', { class: 'note' }, `지금은 ${base}회차 지정곡을 그대로 쓰고 있어요. ${base}회차 지정곡을 고치면 이 회차에도 함께 반영됩니다. 이 회차만 다르게 하려면 곡을 고치고 저장하세요. ${s.no}회차 전용 지정곡이 만들어지고 ${base}회차 지정곡은 그대로 남습니다.`) : null,
-      el('p', { class: 'note' }, '곡을 적고 그 곡을 쓸 편성과 팀을 고르세요. 팀을 고르지 않으면 선택한 편성의 모든 팀, 편성도 "모든 편성"이면 이 회차의 모든 팀에 적용됩니다.'));
+      el('p', { class: 'note' }, '곡을 적고 그 곡을 쓸 편성과 팀을 체크하세요. 편성은 여러 개 고를 수 있어요. 팀을 고르지 않으면 체크한 편성의 모든 팀, 편성을 하나도 체크하지 않으면 이 회차의 모든 팀에 적용됩니다.'));
 
     return [el('div', { class: 'tools' }, chips), state,
       el('div', { class: 'songcards' }, cards.length ? cards : el('div', { class: 'empty' }, '등록된 지정곡이 없습니다.')),
@@ -849,7 +858,7 @@
   function assignedSongs(no, t) {
     const out = String(t.fixedSong || '').split(/\n/).map((x) => x.trim()).filter(Boolean);
     songsOfSession(no).filter((x) => x.song
-        && (!x.ensemble || x.ensemble.replace(/\s/g, '') === t.ensemble.replace(/\s/g, ''))
+        && (!ensOf(x).length || ensOf(x).some((e) => sameEns(e, t.ensemble)))
         && (!(x.teams || []).length || x.teams.includes(t.team)))
       .forEach((x) => { if (!out.includes(x.song)) out.push(x.song); });
     return out;
@@ -860,7 +869,7 @@
     if (list.length < songDraft.length && !confirm('곡명이 비어 있는 항목은 빼고 저장할까요?')) return;
     if (inherited && !songDirty && !confirm(`변경 없이 ${s.no}회차 전용 지정곡으로 저장할까요?`)) return;
     try {
-      board.songs = await api('adminSaveSongs', token, s.no, list.map((e) => ({ song: e.song, detail: e.detail, ensemble: e.ensemble, teams: e.teams })), baseTeamSession());
+      board.songs = await api('adminSaveSongs', token, s.no, list.map((e) => ({ song: e.song, detail: e.detail, ensembles: e.ensembles, teams: e.teams })), baseTeamSession());
       songDraft = null; songDirty = false; render(); toast(`${s.no}회차 지정곡을 저장했습니다.`);
     } catch (e) { fail(e); }
   }
