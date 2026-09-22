@@ -311,6 +311,42 @@
   .steps li.now .sl { color: var(--coral); }
   .steps li.event .sl { font-family: var(--head); font-weight: 700; }
 
+  /* 팀 편성 도식 */
+  .ens + .ens { margin-top: 22px; }
+  .ens-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .ens-head b { font-family: var(--head); font-size: 16px; }
+  .ens-head span { font-size: 14px; color: var(--muted); }
+  .teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .team { position: relative; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 14px 14px 12px;
+    display: flex; flex-direction: column; gap: 10px; font: inherit; color: inherit; }
+  button.team { cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+  button.team:hover { border-color: var(--teal); box-shadow: 0 6px 16px rgba(28,96,119,.12); transform: translateY(-2px); }
+  .team-name { font-family: var(--head); font-weight: 700; font-size: 16px; }
+  .seats { display: flex; gap: 10px; flex-wrap: wrap; }
+  .seat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 44px; }
+  .seat i { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-style: normal;
+    font-family: var(--head); font-weight: 700; font-size: 14px; background: var(--ivory); border: 1px solid var(--line); color: var(--ink); }
+  .seat i[data-fam="pf"] { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .seat i[data-fam="vn"] { background: var(--coral); border-color: var(--coral); color: #fff; }
+  .seat i[data-fam="vc"] { background: var(--apricot); border-color: var(--apricot); color: var(--ink); }
+  .seat i[data-fam="wind"] { background: var(--teal-soft); border-color: var(--teal); color: var(--teal-deep); }
+  .seat span { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .seat small { font-size: 11px; color: var(--muted); margin-top: -3px; }
+  .songs { border-top: 1px dashed var(--line); padding-top: 8px; font-size: 14px; display: grid; gap: 4px; }
+  .songs .k { font-size: 12px; font-weight: 700; color: var(--teal); }
+  .songs .k.sel { color: var(--coral); }
+  .songs .song { line-height: 1.45; }
+  .songs .who { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .songs .none { color: var(--muted); }
+  .team .add { margin-top: auto; font-family: var(--head); font-weight: 700; font-size: 14px; color: var(--teal); }
+  .team.pick { border: 2px solid var(--teal); padding: 13px 13px 11px; }
+  .teams-hint { margin: -4px 0 14px; font-size: 15px; color: var(--muted); }
+  .teams-hint b { color: var(--coral); }
+  .who-pick { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fgrid .who-pick label, .who-pick label { display: inline-flex; grid-template-columns: none; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; font-weight: 500; }
+  .who-pick input { width: auto; accent-color: var(--teal); margin: 0; }
+  .fgrid .who-pick label:has(input:checked), .who-pick label:has(input:checked) { border-color: var(--teal); background: var(--teal-soft); }
+
   .next { background: var(--ivory); border-radius: 6px; padding: 20px 22px; }
   .next .lbl { font-size: 14px; font-weight: 700; color: var(--teal); margin: 0 0 4px; }
   .next .what { font-family: var(--head); font-weight: 700; font-size: 18px; margin: 0; }
@@ -677,6 +713,11 @@
         el('div', { class: 'sl' }, m.label));
     }));
 
+    // 팀 편성 (teams 시트에 이 회차 팀이 있을 때)
+    const teams = (board.teams || []).filter((t) => t.session === s.no);
+    const wishOpen = st.key === 'apply' && s.applyType === 'comment';
+    const teamSec = teams.length ? renderTeams(s, teams, wishOpen) : null;
+
     // 2) 공지 · 안내
     const adminBar = adminToken ? el('div', { class: 'admin-bar' },
       el('button', { class: 'btn primary', onclick: () => showEditor(null, s.no) }, '이 회차에 글쓰기'),
@@ -692,6 +733,10 @@
       next.append(el('button', { class: 'cta', onclick: () => openApply(s) },
         `${s.applyLabel}하기`,
         el('small', {}, `${mdw(s.applyEnd)}까지 · `, el('b', {}, dd(daysBetween(T, s.applyEnd))))));
+    } else if (wishOpen && teams.length) {
+      next.append(el('button', { class: 'cta', onclick: () => document.getElementById('teamSec')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+        `팀을 골라 ${s.applyLabel}하기`,
+        el('small', {}, `위 팀 편성에서 우리 팀을 누르세요 · ${mdw(s.applyEnd)}까지 `, el('b', {}, dd(daysBetween(T, s.applyEnd))))));
     } else if (st.key === 'apply' && s.applyType === 'comment') {
       const target = posts.find((p) => p.pinned) || posts[0];
       next.append(target
@@ -728,8 +773,103 @@
 
     return el('div', { class: 'panel', role: 'tabpanel', 'aria-label': `${s.no}회 ${s.title}` },
       el('section', {}, el('h3', {}, '진행 순서'), steps),
+      teamSec,
       el('section', {}, el('h3', {}, `공지 · 안내 ${posts.length}`), adminBar, list),
       el('section', {}, el('h3', {}, st.key === 'apply' ? '지금 할 일' : '다음 일정'), next));
+  }
+
+  /* ───── 팀 편성 도식 · 희망곡 ───── */
+  function partFam(part) {
+    if (/피아노|piano|건반/i.test(part)) return 'pf';
+    if (/바이올린|비올라|violin|viola/i.test(part)) return 'vn';
+    if (/첼로|베이스|cello|bass/i.test(part)) return 'vc';
+    if (part) return 'wind';
+    return '';
+  }
+
+  function renderTeams(s, teams, wishOpen) {
+    const groups = [];
+    teams.forEach((t) => {
+      let g = groups.find((x) => x.name === t.ensemble);
+      if (!g) groups.push(g = { name: t.ensemble, teams: [] });
+      g.teams.push(t);
+    });
+    const people = teams.reduce((n, t) => n + t.members.length, 0);
+
+    const card = (t) => {
+      const canWish = wishOpen && !t.fixedSong;
+      const songs = el('div', { class: 'songs' });
+      if (t.selectedSong) {
+        songs.append(el('span', { class: 'k sel' }, '확정곡'), el('span', { class: 'song' }, t.selectedSong));
+      } else if (t.fixedSong) {
+        songs.append(el('span', { class: 'k' }, '지정곡'), el('span', { class: 'song' }, t.fixedSong));
+      } else if (t.wishes.length) {
+        songs.append(el('span', { class: 'k' }, `희망곡 ${t.wishes.length}`),
+          ...t.wishes.map((w) => el('span', { class: 'song' }, w.song, el('span', { class: 'who' }, w.name))));
+      } else if (wishOpen) {
+        songs.append(el('span', { class: 'none' }, '아직 남긴 희망곡이 없어요'));
+      }
+      const body = [
+        el('span', { class: 'team-name' }, t.team),
+        el('div', { class: 'seats' }, t.members.length ? t.members.map((m) =>
+          el('span', { class: 'seat' },
+            el('i', { 'data-fam': partFam(m.part), 'aria-hidden': 'true' }, (m.part || m.name).slice(0, 1)),
+            el('span', {}, m.name), m.part ? el('small', {}, m.part) : null))
+          : el('span', { class: 'meta' }, '구성원 입력 전')),
+        songs.childNodes.length ? songs : null,
+        canWish ? el('span', { class: 'add' }, t.wishes.length ? '+ 희망곡 추가하기' : '+ 희망곡 남기기') : null,
+      ];
+      return canWish
+        ? el('button', { class: 'team pick', type: 'button', onclick: () => openWish(s, t), 'aria-label': `${t.team} 희망곡 남기기` }, ...body)
+        : el('div', { class: 'team' }, ...body);
+    };
+
+    return el('section', { id: 'teamSec' },
+      el('h3', {}, `팀 편성 · ${teams.length}팀 ${people ? people + '명' : ''}`),
+      wishOpen ? el('p', { class: 'teams-hint' }, '우리 팀 카드를 눌러 희망곡을 남겨 주세요. ',
+        el('b', {}, `${mdw(s.applyEnd)} 마감`)) : null,
+      ...groups.map((g) => el('div', { class: 'ens' },
+        el('div', { class: 'ens-head' }, el('b', {}, g.name), el('span', {}, `${g.teams.length}팀`)),
+        el('div', { class: 'teams' }, g.teams.map(card)))));
+  }
+
+  function openWish(s, t) {
+    const whoField = t.members.length
+      ? el('div', { class: 'full' }, el('div', { style: 'font-size:14px;font-weight:600;margin-bottom:6px' }, '작성자'),
+          el('div', { class: 'who-pick' }, t.members.map((m, i) =>
+            el('label', {}, el('input', { type: 'radio', name: 'who', value: m.name, required: true, checked: t.members.length === 1 && i === 0 }),
+              m.name + (m.part ? ` · ${m.part}` : '')))))
+      : el('label', { class: 'full' }, '이름', el('input', { name: 'who', required: true, maxlength: 20 }));
+
+    const form = el('form', { onsubmit: async (ev) => {
+        ev.preventDefault();
+        const f = form.elements;
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+          const updated = await api('addTeamWish', s.no, t.team, f['who'].value, f['song'].value, f['pw'].value);
+          board.teams = (board.teams || []).filter((x) => x.session !== s.no).concat(updated);
+          applyDlg.close();
+          toast(`${t.team} 희망곡을 남겼습니다.`);
+          if (current.view === 'home') renderHome();
+          loadBoard().then(() => current.view === 'home' && renderHome()).catch(() => {});
+        } catch (e) { toast(e.message, true); btn.disabled = false; }
+      } },
+      el('h3', {}, `${t.team} 희망곡 남기기`),
+      el('p', { class: 'meta', style: 'margin:-8px 0 16px' }, `${t.ensemble} · ${mdw(s.applyEnd)}까지`),
+      el('div', { class: 'fgrid' },
+        whoField,
+        el('label', { class: 'full' }, '희망곡',
+          el('textarea', { name: 'song', required: true, maxlength: 300, style: 'min-height:80px',
+            placeholder: '작곡가, 곡명, 악장을 적어 주세요.\n예: C. Saint-Saëns, Danse macabre Op. 40' })),
+        el('label', {}, el('span', {}, '비밀번호 ', el('small', {}, '(숫자 4자리 · 삭제할 때 필요)')),
+          el('input', { name: 'pw', type: 'password', inputmode: 'numeric', pattern: '\\d{4}', maxlength: 4, required: true }))),
+      el('p', { class: 'hint', style: 'margin:12px 0 0' }, '팀원 중 한 명만 남겨도 됩니다. 남긴 희망곡은 공지글 댓글에도 함께 표시돼요.'),
+      el('div', { class: 'form-end', style: 'margin-top:16px' },
+        el('button', { type: 'button', class: 'btn', onclick: () => applyDlg.close() }, '취소'),
+        el('button', { type: 'submit', class: 'btn primary' }, '희망곡 남기기')));
+    applyDlg.replaceChildren(form);
+    applyDlg.showModal();
   }
 
   function postList(posts, compact) {
