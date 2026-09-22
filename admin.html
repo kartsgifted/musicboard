@@ -119,6 +119,11 @@
   table.wtbl th:nth-child(3) { width: 48%; } table.wtbl th:nth-child(4) { width: 14%; }
   .members { display: flex; gap: 4px; flex-wrap: wrap; }
   .members span { background: var(--teal-soft); border-radius: 6px; padding: 1px 8px; font-size: 13px; white-space: nowrap; }
+  .members span.dup { background: #FCE3E5; }
+  .members span.dup b { color: var(--coral); margin-left: 1px; }
+  .dup-box { border: 1px solid #F4C4C9; background: #FFF6F6; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 14px; }
+  .dup-box h4 { margin: 0 0 8px; font-family: var(--head); font-size: 15px; color: #A42836; }
+  .dup-box ul { margin: 0; padding-left: 18px; }
   .wlist { display: grid; gap: 4px; }
   .wlist div { display: flex; gap: 8px; align-items: baseline; }
   .wlist .s { flex: 1; min-width: 0; }
@@ -373,10 +378,19 @@
       el('button', { class: 'btn', onclick: () => csvDownload('희망곡_현황.csv',
         ['회차', '편성', '팀', '구성원', '구분', '희망곡', '작성자', '입력 시각'],
         teams.flatMap((t) => (t.wishes.length ? t.wishes : [null]).map((w) => [
-          t.session, t.ensemble, t.team, t.members.map((m) => m.name + (m.part ? `(${m.part})` : '')).join(', '),
+          t.session, t.ensemble, t.team, t.members.map((m) => m.name + (isDup(t, m.name) ? '*' : '') + (m.part ? `(${m.part})` : '')).join(', '),
           w ? { fixed: '지정곡', etc: '기타', list: '목록' }[songKind(w.song)] : '미입력', w ? w.song : '', w ? w.name : '', w ? w.createdAt : ''])))
       }, '엑셀(CSV) 내려받기'),
       el('button', { class: 'btn', onclick: loadAll }, '새로고침'));
+
+    // 중복 참여 학생 (같은 회차 두 팀 이상)
+    const by = {};
+    teams.forEach((t) => new Set(t.members.map((m) => m.name)).forEach((n) => (by[`${t.session}|${n}`] = by[`${t.session}|${n}`] || []).push(t.team)));
+    const dups = Object.entries(by).filter(([, ts]) => ts.length > 1);
+    const isDup = (t, n) => (by[`${t.session}|${n}`] || []).length > 1;
+    const dupBox = dups.length ? el('div', { class: 'dup-box' },
+      el('h4', {}, `중복 참여 학생 ${dups.length}명 (이름 옆 * 표시)`),
+      el('ul', {}, dups.map(([k, ts]) => el('li', {}, el('b', {}, k.split('|')[1]), ` — ${ts.join(', ')}`)))) : null;
 
     // 편성별 표
     const groups = [];
@@ -387,7 +401,9 @@
         el('thead', {}, el('tr', {}, ['팀', '구성원', '희망곡', '상태'].map((h) => el('th', {}, h)))),
         el('tbody', {}, g.teams.map((t) => el('tr', {},
           el('td', { class: 'nw' }, el('b', {}, t.team)),
-          el('td', {}, el('div', { class: 'members' }, t.members.map((m) => el('span', {}, m.name)))),
+          el('td', {}, el('div', { class: 'members' }, t.members.map((m) => isDup(t, m.name)
+            ? el('span', { class: 'dup', title: `중복 참여: ${by[`${t.session}|${m.name}`].join(', ')}` }, m.name, el('b', {}, '*'))
+            : el('span', {}, m.name)))),
           el('td', {}, t.wishes.length ? el('div', { class: 'wlist' }, t.wishes.map((w) => el('div', {},
               el('span', { class: 's' }, w.song),
               el('span', { class: 'who' }, `${w.name} · ${fmt(w.createdAt)}`),
@@ -407,7 +423,7 @@
           el('span', { class: 'b' }, el('i', { style: `width:${n / max * 100}%` })), el('span', { class: 'c' }, `${n}팀`))));
     }).filter(Boolean);
 
-    return [progress, tools, ...tables.flat(), tally.length ? el('div', { class: 'tally' }, tally) : null];
+    return [progress, dupBox, tools, ...tables.flat(), tally.length ? el('div', { class: 'tally' }, tally) : null];
   }
 
   function statusTag(t) {
