@@ -462,46 +462,78 @@
     const formSessions = board.sessions.filter((s) => s.applyType === 'form');
     if (!formSessions.length) return el('div', { class: 'empty' }, '신청을 받는 회차가 없습니다.');
     const s = formSessions.find((x) => x.no === appSession) || formSessions[0];
+    const team = s.applyMode === 'team';
+    const unit = team ? '팀' : '명';
     const all = apps.filter((a) => a.session === s.no);
     const q = appQuery.trim();
-    const list = q ? all.filter((a) => [a.name, a.school, a.instrument, a.phone].some((v) => String(v).includes(q))) : all;
+    const list = q ? all.filter((a) => [a.name, a.team, a.ensemble, a.members, a.song].some((v) => String(v || '').includes(q))) : all;
+    const yes = all.filter((a) => a.attend === '참여');
+    const no = all.filter((a) => a.attend === '불참');
+    const d = (x) => (x ? x.slice(5).replace('-', '/') : '');
 
     const chips = el('div', { class: 'chips' }, formSessions.map((x) =>
       el('button', { class: 'chip', 'aria-pressed': String(x.no === s.no), onclick: () => { appSession = x.no; appQuery = ''; render(); } },
         `${x.no}회 ${x.title}`, el('span', { class: 'n' }, String(apps.filter((a) => a.session === x.no).length)))));
 
-    const search = el('input', { class: 'search', type: 'search', placeholder: '이름·학교·악기·연락처 검색', value: appQuery });
+    const search = el('input', { class: 'search', type: 'search', placeholder: team ? '신청자·팀·팀원·곡 검색' : '이름·곡 검색', value: appQuery });
     search.addEventListener('input', () => { appQuery = search.value; const pos = search.selectionStart; render(); const n = document.querySelector('.search'); n.focus(); n.setSelectionRange(pos, pos); });
 
+    const header = team ? ['번호', '접수 시각', '신청자', '실내악 편성', '팀', '팀원', '참여 여부', '레슨 곡목']
+                        : ['번호', '접수 시각', '이름', '참여 여부', '레슨 곡목'];
+    const rowOf = (a, i) => team ? [i + 1, a.updatedAt || a.createdAt, a.name, a.ensemble, a.team, a.members, a.attend, a.song]
+                                 : [i + 1, a.updatedAt || a.createdAt, a.name, a.attend, a.song];
+
     const tools = el('div', { class: 'tools' }, chips, el('span', { class: 'sp' }), search,
-      el('button', { class: 'btn', disabled: !all.length, onclick: () => csvDownload(`${s.no}회_${s.title}_신청자.csv`,
-        ['번호', '신청 시각', '이름', '소속 학교', '학년', '전공 악기', '휴대폰', '하고 싶은 말'],
-        all.map((a, i) => [i + 1, a.createdAt, a.name, a.school, a.grade, a.instrument, a.phone, a.message])) }, '엑셀(CSV) 내려받기'),
+      el('button', { class: 'btn', disabled: !all.length, onclick: () => csvDownload(`${s.no}회_${s.title}_신청.csv`, header, all.map(rowOf)) }, '엑셀(CSV) 내려받기'),
       el('button', { class: 'btn', onclick: loadAll }, '새로고침'));
 
+    // 팀 신청: 1회차 팀 중 아직 신청하지 않은 팀
+    const firstNo = (board.teams || []).reduce((n, t) => Math.min(n, t.session), 99);
+    const rosterTeams = (board.teams || []).filter((t) => t.session === firstNo);
+    const appliedTeams = new Set(all.map((a) => a.team).filter(Boolean));
+    const notYet = team ? rosterTeams.filter((t) => !appliedTeams.has(t.team)) : [];
+    const people = team ? yes.reduce((n, a) => n + String(a.members || '').split(/[,，]/).filter((x) => x.trim()).length, 0) : yes.length;
+
     const summary = el('div', { class: 'app-grid' },
-      el('div', { class: 'box' }, el('h4', {}, '신청 인원'),
-        el('div', { class: 'big' }, String(all.length), el('small', {}, '명')),
-        el('div', { class: 'sub' }, `신청 기간 ${s.applyStart ? s.applyStart.slice(5).replace('-', '/') : ''} ~ ${s.applyEnd ? s.applyEnd.slice(5).replace('-', '/') : ''} · 진행 ${s.date ? s.date.slice(5).replace('-', '/') : ''}`)),
-      el('div', { class: 'box' }, el('h4', {}, '전공 악기별'), bars(countBy(all, 'instrument'))),
-      el('div', { class: 'box' }, el('h4', {}, '학년별'), bars(countBy(all, 'grade'))));
+      el('div', { class: 'box' }, el('h4', {}, `신청 ${unit}`),
+        el('div', { class: 'big' }, String(all.length), el('small', {}, unit)),
+        el('div', { class: 'sub' }, `신청 기간 ${d(s.applyStart)} ~ ${d(s.applyEnd)} · 진행 ${d(s.date)}`)),
+      el('div', { class: 'box' }, el('h4', {}, '참여 여부'),
+        el('div', { class: 'mini', style: 'margin-bottom:8px' },
+          el('div', {}, el('b', {}, String(yes.length)), el('span', {}, `참여 ${unit}`)),
+          el('div', {}, el('b', { style: 'color:var(--coral)' }, String(no.length)), el('span', {}, `불참 ${unit}`)),
+          team ? el('div', {}, el('b', {}, String(people)), el('span', {}, '참여 인원')) : null),
+        no.length ? el('div', { class: 'sub' }, `불참: ${no.map((a) => a.team || a.name).join(', ')}`) : null),
+      team
+        ? el('div', { class: 'box' }, el('h4', {}, '미신청 팀'), rosterTeams.length
+            ? (notYet.length ? el('div', { class: 'sub', style: 'color:var(--coral);font-weight:600' }, notYet.map((t) => t.team).join(', '))
+                             : el('div', { class: 'sub' }, '1회차 팀이 모두 신청했습니다.'))
+            : el('div', { class: 'sub' }, 'teams 탭에 팀 편성이 없습니다.'))
+        : el('div', { class: 'box' }, el('h4', {}, '레슨 곡목 입력'),
+            el('div', { class: 'big' }, String(yes.filter((a) => a.song).length), el('small', {}, ` / ${yes.length}명`)),
+            el('div', { class: 'sub' }, '참여 학생 중 곡목을 적은 인원')));
 
     const table = list.length ? el('div', { class: 'tbl-wrap' }, el('table', {},
-      el('thead', {}, el('tr', {}, ['번호', '신청 시각', '이름', '소속 학교', '학년', '전공 악기', '휴대폰', '하고 싶은 말', ''].map((h) => el('th', {}, h)))),
-      el('tbody', {}, list.map((a) => el('tr', {},
-        el('td', { class: 'num' }, String(all.indexOf(a) + 1)),
-        el('td', { class: 'num' }, fmt(a.createdAt)),
-        el('td', { class: 'nw' }, el('b', {}, a.name)),
-        el('td', {}, a.school), el('td', { class: 'nw' }, a.grade), el('td', { class: 'nw' }, a.instrument),
-        el('td', { class: 'nw' }, a.phone), el('td', { class: 'msg' }, a.message || ''),
-        el('td', {}, el('button', { class: 'btn sm danger', onclick: () => cancelApp(a) }, '신청 취소')))))))
-      : el('div', { class: 'empty' }, q ? '검색 결과가 없습니다.' : '아직 신청자가 없습니다.');
+      el('thead', {}, el('tr', {}, header.concat(['']).map((x) => el('th', {}, x)))),
+      el('tbody', {}, list.map((a) => {
+        const i = all.indexOf(a);
+        const att = el('span', { class: 'tag ' + (a.attend === '참여' ? 'ok' : 'no') }, a.attend);
+        const time = el('td', { class: 'num' }, fmt(a.updatedAt || a.createdAt), a.updatedAt ? el('div', { style: 'font-size:11px' }, '수정됨') : null);
+        const cells = team
+          ? [el('td', { class: 'num' }, String(i + 1)), time, el('td', { class: 'nw' }, el('b', {}, a.name)),
+             el('td', { class: 'nw' }, a.ensemble), el('td', { class: 'nw' }, a.team || '–'), el('td', {}, a.members),
+             el('td', { class: 'nw' }, att), el('td', { class: 'msg' }, a.song || '–')]
+          : [el('td', { class: 'num' }, String(i + 1)), time, el('td', { class: 'nw' }, el('b', {}, a.name)),
+             el('td', { class: 'nw' }, att), el('td', { class: 'msg' }, a.song || '–')];
+        return el('tr', {}, ...cells, el('td', {}, el('button', { class: 'btn sm danger', onclick: () => cancelApp(a) }, '신청 취소')));
+      }))))
+      : el('div', { class: 'empty' }, q ? '검색 결과가 없습니다.' : '아직 신청이 없습니다.');
 
     return [tools, summary, table];
   }
 
   async function cancelApp(a) {
-    if (!confirm(`${a.name} 학생의 신청을 취소 처리할까요? (시트에는 기록이 남습니다)`)) return;
+    if (!confirm(`${a.team || a.name}의 신청을 취소 처리할까요? (시트에는 기록이 남습니다)`)) return;
     try { await api('adminCancelApplication', token, a.id); apps = apps.filter((x) => x.id !== a.id); render(); toast('취소 처리했습니다.'); }
     catch (e) { fail(e); }
   }
