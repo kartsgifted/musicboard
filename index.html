@@ -240,12 +240,15 @@
   .hero .lede { margin: 8px 0 0; font-size: 16px; opacity: .8; }
   .preview-flag { display: inline-block; margin-top: 12px; background: var(--apricot); color: var(--ink); font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 2px; }
 
-  /* 오선 일정표: 음표 = 일정, 재생 막대 = 오늘 */
+  /* 오선 일정표: 월 = 마디, 음표 = 일정, 막대 = 신청 기간, 재생선 = 오늘 */
   .score-scroll { overflow-x: auto; margin-top: 28px; padding-bottom: 22px; scrollbar-width: thin; }
-  .score { --g: 18px; position: relative; min-width: 760px; max-width: 1040px; margin: 0 auto; height: calc(var(--g) * 4 + 108px); padding: 0 40px; }
-  .score .staff { position: absolute; left: 40px; right: 40px; top: 44px; height: calc(var(--g) * 4 + 1px);
+  .score { --g: 18px; position: relative; min-width: 720px; max-width: 1040px; margin: 0 auto; height: calc(var(--g) * 4 + 122px); padding: 0 40px; }
+  .score .staff { position: absolute; left: 40px; right: 40px; top: 70px; height: calc(var(--g) * 4 + 1px);
     background: repeating-linear-gradient(to bottom, rgba(255,255,255,.28) 0 1px, transparent 1px var(--g)); }
-  .score .track { position: absolute; left: 56px; right: 56px; top: 44px; height: calc(var(--g) * 4); }
+  .score .track { position: absolute; left: 40px; right: 40px; top: 70px; height: calc(var(--g) * 4); }
+  .bar { position: absolute; top: 0; height: calc(var(--g) * 4 + 1px); width: 1px; background: rgba(255,255,255,.45); }
+  .bar.final { width: 4px; box-shadow: -5px 0 0 -3px rgba(255,255,255,.45); transform: translateX(-4px); background: rgba(255,255,255,.7); }
+  .month { position: absolute; top: -24px; font-family: var(--head); font-size: 13px; font-weight: 600; opacity: .7; white-space: nowrap; transform: translateX(8px); }
   .note { position: absolute; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,.9); background: transparent;
     border-radius: 50%; width: 13px; height: 11px; padding: 0; cursor: pointer; color: #fff; }
   .note.past { background: rgba(255,255,255,.9); }
@@ -257,13 +260,13 @@
   .note.sel.past, .note.event.sel { background: var(--apricot); color: var(--ink); }
   .note.event.sel::after { background: var(--apricot); }
   .note:hover { transform: translate(-50%, -50%) scale(1.15); }
-  .tie { position: absolute; height: 4px; border-radius: 2px; background: rgba(255,255,255,.35); transform: translateY(-14px); }
+  .tie { position: absolute; height: 6px; border-radius: 3px; background: rgba(255,255,255,.4); transform: translateY(-50%); cursor: pointer; border: 0; padding: 0; }
   .tie.sel { background: var(--apricot); }
-  .dlabel { position: absolute; top: calc(var(--g) * 4 + 12px); transform: translateX(-50%); font-size: 12px; opacity: .72; white-space: nowrap; }
+  .dlabel { position: absolute; top: calc(var(--g) * 4 + 12px); transform: translateX(-50%); font-size: 12px; opacity: .8; white-space: nowrap; }
   .dlabel.row2 { top: calc(var(--g) * 4 + 30px); }
   .dlabel.ev { opacity: 1; font-weight: 700; }
-  .playhead { position: absolute; top: 18px; bottom: 26px; width: 2px; background: var(--coral); transform: translateX(-1px); pointer-events: none; }
-  .playhead span { position: absolute; top: -4px; left: 50%; transform: translate(-50%, -100%); background: var(--coral); color: #fff;
+  .playhead { position: absolute; top: -40px; height: calc(var(--g) * 4 + 48px); width: 2px; background: var(--coral); transform: translateX(-1px); pointer-events: none; }
+  .playhead span { position: absolute; top: 0; left: 50%; transform: translate(-50%, -100%); background: var(--coral); color: #fff;
     font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 2px; white-space: nowrap; }
 
   /* 4개의 악장 카드 */
@@ -274,7 +277,7 @@
   .mv .num { font-family: var(--head); font-weight: 800; font-size: 34px; line-height: 1; color: var(--line); }
   .mv .nth { font-size: 13px; color: var(--muted); margin-top: 6px; }
   .mv .ttl { font-family: var(--head); font-weight: 700; font-size: 18px; line-height: 1.35; }
-  .mv .when { font-size: 14px; color: var(--muted); }
+  .mv .when, .mv .where { font-size: 14px; color: var(--muted); }
   .mv .badge { margin-top: auto; padding-top: 10px; font-size: 13px; font-weight: 700; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .mv .badge em { font-style: normal; font-weight: 600; opacity: .85; }
   .mv[data-state="apply"], .mv[data-state="ready"], .mv[data-state="today"] { border: 2px solid var(--teal); padding: 17px 17px 15px; }
@@ -286,44 +289,42 @@
   .mv[data-state="done"] .ttl, .mv[data-state="done"] .when { color: var(--muted); }
   .mv[aria-selected="true"] { background: var(--teal-deep); border-color: var(--teal-deep); color: #fff; }
   .mv[aria-selected="true"] .num { color: var(--apricot); }
-  .mv[aria-selected="true"] .nth, .mv[aria-selected="true"] .when, .mv[aria-selected="true"] .ttl, .mv[aria-selected="true"] .badge { color: #fff; }
+  .mv[aria-selected="true"] .nth, .mv[aria-selected="true"] .when, .mv[aria-selected="true"] .where, .mv[aria-selected="true"] .ttl, .mv[aria-selected="true"] .badge { color: #fff; }
   .mv[aria-selected="true"]::after { content: ''; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%) rotate(45deg);
     width: 16px; height: 16px; background: var(--teal-deep); }
 
-  /* 선택된 악장 패널 */
-  .panel { margin-top: 20px; background: var(--surface); border-radius: 6px; border-top: 4px solid var(--teal-deep); padding: 32px; }
-  .panel-head { display: flex; gap: 20px; align-items: flex-start; }
-  .panel-head .big { font-family: var(--head); font-weight: 800; font-size: 64px; line-height: .9; color: var(--teal); flex: none; }
-  .panel-head .kicker { font-size: 14px; color: var(--muted); }
-  .panel-head h2 { margin: 2px 0 6px; font-family: var(--head); font-size: clamp(22px, 4vw, 28px); line-height: 1.35; }
-  .panel-head .facts { display: flex; gap: 6px 18px; flex-wrap: wrap; font-size: 15px; }
-  .panel-head .facts b { color: var(--teal-deep); margin-right: 6px; }
-  .panel .summary { margin: 16px 0 0; color: var(--ink); }
-  .panel-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; margin-top: 28px; }
-  .panel h3 { font-family: var(--head); font-size: 17px; margin: 0 0 12px; }
+  /* 선택된 악장 패널: 진행 순서 → 공지·안내 → 다음 일정 */
+  .panel { margin-top: 20px; background: var(--surface); border-radius: 6px; border-top: 4px solid var(--teal-deep); padding: 28px 32px 32px; }
+  .panel h3 { font-family: var(--head); font-size: 17px; margin: 0 0 14px; }
+  .panel section + section { margin-top: 36px; }
 
-  .steps { list-style: none; margin: 0; padding: 0; position: relative; }
-  .steps li { position: relative; padding: 0 0 18px 30px; }
-  .steps li::before { content: ''; position: absolute; left: 6px; top: 8px; bottom: -8px; width: 2px; background: var(--line); }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); }
+  .steps li { position: relative; padding: 24px 12px 0 0; }
+  .steps li::before { content: ''; position: absolute; left: 12px; right: 0; top: 7px; height: 2px; background: var(--line); }
   .steps li:last-child::before { display: none; }
-  .steps li::after { content: ''; position: absolute; left: 0; top: 5px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); background: #fff; }
-  .steps li.done::after { background: var(--teal); border-color: var(--teal); }
-  .steps li.done::before { background: var(--teal); }
+  .steps li::after { content: ''; position: absolute; left: 0; top: 1px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); background: #fff; }
+  .steps li.done::before, .steps li.done::after { background: var(--teal); border-color: var(--teal); }
   .steps li.now::after { background: var(--coral); border-color: var(--coral); box-shadow: 0 0 0 4px rgba(232,73,88,.18); }
+  .steps li.event::after { width: 14px; height: 14px; top: -1px; left: -2px; }
   .steps .sd { font-size: 14px; color: var(--muted); }
-  .steps .sl { font-weight: 600; }
+  .steps .sl { font-weight: 600; line-height: 1.45; }
   .steps li.now .sl { color: var(--coral); }
   .steps li.event .sl { font-family: var(--head); font-weight: 700; }
 
-  .action { background: var(--ivory); border-radius: 6px; padding: 20px; margin-bottom: 24px; }
-  .action .big-btn { width: 100%; padding: 14px; font-size: 17px; }
-  .action .line1 { font-family: var(--head); font-weight: 700; font-size: 18px; margin: 0 0 4px; }
-  .action .line2 { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
-  .action .dday { color: var(--coral); font-weight: 700; }
-  .action .row-links { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-  .admin-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .next { background: var(--ivory); border-radius: 6px; padding: 20px 22px; }
+  .next .lbl { font-size: 14px; font-weight: 700; color: var(--teal); margin: 0 0 4px; }
+  .next .what { font-family: var(--head); font-weight: 700; font-size: 18px; margin: 0; }
+  .next .sub { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+  .next .dday { color: var(--coral); font-weight: 700; }
+  .cta { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; padding: 16px; border-radius: 6px;
+    background: var(--teal); color: #fff; border: 0; cursor: pointer; font-family: var(--head); font-weight: 700; font-size: 19px; }
+  .cta:hover { background: var(--teal-deep); }
+  .cta small { font-family: var(--sans); font-weight: 500; font-size: 14px; opacity: .88; }
+  .cta small b { color: var(--apricot); }
+  .under-links { display: flex; justify-content: center; margin-top: 12px; }
+  .admin-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   ul.list.compact button { padding: 16px 4px; }
-  .empty.small { padding: 32px 16px; font-size: 15px; }
+  .empty.small { padding: 28px 16px; font-size: 15px; }
 
   .news { margin-top: 56px; }
   .news-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -357,7 +358,6 @@
   @media (max-width: 900px) {
     .movements { grid-template-columns: repeat(2, 1fr); }
     .mv[aria-selected="true"]::after { display: none; }
-    .panel-grid { grid-template-columns: 1fr; gap: 8px; }
   }
   @media (max-width: 600px) {
     .hero { padding-top: 44px; }
@@ -365,7 +365,9 @@
     .mv .num { font-size: 28px; }
     .mv .ttl { font-size: 16px; }
     .panel { padding: 22px 18px; margin-left: -8px; margin-right: -8px; }
-    .panel-head .big { font-size: 44px; }
+    .steps li { padding-right: 8px; }
+    .steps .sd { font-size: 13px; }
+    .steps .sl { font-size: 15px; }
     .fgrid { grid-template-columns: 1fr; }
   }
   @media (prefers-reduced-motion: reduce) { .mv, .note { transition: none; } .mv .live { animation: none; } }
@@ -376,7 +378,7 @@
   <div class="wrap">
     <p class="en">Music Mentoring <span>2026</span></p>
     <h1>K예술영재 프로젝트 음악분야 멘토링 게시판</h1>
-    <p class="lede">네 번의 멘토링이 한 시즌을 이룹니다. 불이 켜진 악장에서 신청과 공지를 확인하세요.</p>
+    <p class="lede">네 번의 멘토링이 한 시즌을 이룹니다. 불이 켜진 회차에서 신청과 공지를 확인하세요.</p>
     <div id="previewFlag"></div>
   </div>
   <div class="score-scroll"><div class="score" id="score" aria-label="시즌 일정표"></div></div>
@@ -525,54 +527,78 @@
     const box = $('#score');
     if (!board || !board.sessions.length) { box.replaceChildren(); return; }
     const all = [];
-    board.sessions.forEach((s) => (s.milestones || []).forEach((m) => { all.push(m.date); if (m.endDate) all.push(m.endDate); }));
-    board.sessions.forEach((s) => all.push(s.date));
+    board.sessions.forEach((s) => {
+      all.push(s.date);
+      (s.milestones || []).forEach((m) => { all.push(m.date); if (m.endDate) all.push(m.endDate); });
+    });
     all.sort();
-    const start = all[0], end = all[all.length - 1];
-    const span = Math.max(1, daysBetween(start, end));
-    const x = (d) => `${Math.min(100, Math.max(0, daysBetween(start, d) / span * 100))}%`;
-    // 회차가 거듭될수록 음이 올라가는 선율 (반 칸 단위, 아래에서 위로)
+    // 첫 달 1일 ~ 마지막 달 말일: 한 달이 한 마디
+    const first = all[0], last = all[all.length - 1];
+    const start = first.slice(0, 8) + '01';
+    const ly = +last.slice(0, 4), lm = +last.slice(5, 7);
+    const end = `${ly}-${String(lm).padStart(2, '0')}-${new Date(Date.UTC(ly, lm, 0)).getUTCDate()}`;
+    const span = Math.max(1, daysBetween(start, end) + 1);
+    const pct = (d) => Math.min(100, Math.max(0, daysBetween(start, d) / span * 100));
+    const x = (d) => `${pct(d)}%`;
     const n = board.sessions.length;
+    // 회차가 거듭될수록 음이 올라가는 선율
     const pitch = (i) => `calc(var(--g) * ${(Math.max(1, 7 - i * (6 / Math.max(1, n - 1)))) / 2})`;
 
     const track = el('div', { class: 'track' });
-    const labels = new Set();
     const T = today();
 
+    // 마디(월)
+    let y0 = +start.slice(0, 4), m0 = +start.slice(5, 7);
+    while (true) {
+      const ms = `${y0}-${String(m0).padStart(2, '0')}-01`;
+      if (ms > end) break;
+      if (ms !== start) { const b = el('div', { class: 'bar' }); b.style.left = x(ms); track.append(b); }
+      const lab = el('span', { class: 'month' }, `${m0}월`);
+      lab.style.left = x(ms);
+      track.append(lab);
+      m0++; if (m0 > 12) { m0 = 1; y0++; }
+    }
+    const fin = el('div', { class: 'bar final' }); fin.style.left = '100%'; track.append(fin);
+
+    const labels = new Map(); // 날짜 → 행사일 여부
     board.sessions.forEach((s, i) => {
       const sel = s.no === selectedNo;
       const y = pitch(i);
       (s.milestones || []).forEach((m) => {
-        const isEvent = m.date === s.date;
         if (m.endDate) {
-          const t = el('div', { class: 'tie' + (sel ? ' sel' : '') });
+          // 신청 기간: 날짜 없이 막대로만
+          const t = el('button', {
+            class: 'tie' + (sel ? ' sel' : ''), title: `${s.no}회 ${m.label} (${md(m.date)}~${md(m.endDate)})`,
+            'aria-label': `${s.no}회 ${m.label}`, onclick: () => selectSession(s.no, true),
+          });
           t.style.left = x(m.date);
-          t.style.width = `calc(${x(m.endDate)} - ${x(m.date)})`;
+          t.style.width = `calc(${x(m.endDate)} - ${x(m.date)} + ${100 / span}%)`;
           t.style.top = y;
           track.append(t);
+          return;
         }
-        const past = (m.endDate || m.date) < T || (isEvent && m.date <= T);
+        const isEvent = m.date === s.date;
+        const past = m.date < T || (isEvent && m.date <= T);
         const b = el('button', {
           class: 'note' + (isEvent ? ' event' : '') + (past ? ' past' : '') + (sel ? ' sel' : ''),
-          title: `${ROMAN[s.no]}. ${s.title} · ${md(m.date)}${m.endDate ? '~' + md(m.endDate) : ''} ${m.label}`,
+          title: `${s.no}회 ${m.label} · ${md(m.date)}`,
           'aria-label': `${s.no}회 ${m.label} ${md(m.date)}`,
           onclick: () => selectSession(s.no, true),
         }, isEvent ? ROMAN[s.no] : null);
         b.style.left = x(m.date);
         b.style.top = y;
         track.append(b);
-        [m.date, m.endDate].filter(Boolean).forEach((d) => labels.add(d));
+        labels.set(m.date, labels.get(m.date) || isEvent);
       });
     });
 
-    // 날짜 글자가 겹치지 않게: 가까운 날짜는 두 번째 줄로
-    const evDates = new Set(board.sessions.map((s) => s.date));
+    // 음표 날짜만 표시 (가까우면 두 번째 줄로)
     let lastRow1 = -99;
-    [...labels].sort().forEach((d) => {
-      const pos = daysBetween(start, d) / span * 100;
+    [...labels.keys()].sort().forEach((d) => {
+      const pos = pct(d);
       const row2 = pos - lastRow1 < 4.5;
       if (!row2) lastRow1 = pos;
-      const l = el('span', { class: 'dlabel' + (row2 ? ' row2' : '') + (evDates.has(d) ? ' ev' : '') }, md(d));
+      const l = el('span', { class: 'dlabel' + (row2 ? ' row2' : '') + (labels.get(d) ? ' ev' : '') }, md(d));
       l.style.left = x(d);
       track.append(l);
     });
@@ -582,7 +608,6 @@
     track.append(ph);
 
     box.replaceChildren(el('div', { class: 'staff' }), track);
-    // 좁은 화면에서는 오늘 위치가 보이도록 가로 스크롤 이동
     const sc = box.parentElement;
     if (sc.scrollWidth > sc.clientWidth) {
       requestAnimationFrame(() => { sc.scrollLeft = Math.max(0, ph.offsetLeft + track.offsetLeft - sc.clientWidth / 2); });
@@ -621,6 +646,7 @@
           el('span', { class: 'nth' }, `${s.no}회`),
           el('span', { class: 'ttl' }, s.title),
           el('span', { class: 'when' }, `${mdw(s.date)} ${s.time || ''}`),
+          s.place ? el('span', { class: 'where' }, s.place) : null,
           el('span', { class: 'badge' },
             isActive(st) ? el('span', { class: 'live', 'aria-hidden': 'true' }) : null,
             st.label, st.detail ? el('em', {}, st.detail) : null)
@@ -628,93 +654,82 @@
       }));
 
     const s = sessionByNo(selectedNo);
-    view.replaceChildren(tiles, s ? renderPanel(s) : '', renderNews());
+    view.replaceChildren(tiles, s ? renderPanel(s) : '', adminToken ? renderNews() : '');
   }
 
   function renderPanel(s) {
     const st = statusOf(s);
     const T = today();
     const posts = board.posts.filter((p) => p.session === s.no);
+    const ms = s.milestones || [];
 
-    // 진행 순서
+    // 1) 진행 순서 (가로)
     let nextMarked = false;
-    const steps = el('ol', { class: 'steps' }, (s.milestones || []).map((m) => {
+    const steps = el('ol', { class: 'steps', style: `--n:${Math.max(1, ms.length)}` }, ms.map((m) => {
       const endD = m.endDate || m.date;
       let cls = '';
       if (endD < T) cls = 'done';
       else if (m.date <= T) cls = 'now';
-      else if (!nextMarked) { cls = 'next'; nextMarked = true; }
+      else if (!nextMarked) { cls = 'up'; nextMarked = true; }
       if (m.date === s.date) cls += ' event';
       return el('li', { class: cls.trim() },
         el('div', { class: 'sd' }, mdw(m.date) + (m.endDate ? ` ~ ${mdw(m.endDate)}` : '')),
         el('div', { class: 'sl' }, m.label));
     }));
 
-    // 행동 영역 (신청 · 참여)
-    const action = el('div', { class: 'action' });
-    if (st.key === 'today') {
-      action.append(el('p', { class: 'line1' }, `오늘 ${s.title}${josa(s.title, '이', '가')} 진행됩니다`),
-        el('p', { class: 'line2', style: 'margin:0' }, [s.time, s.place].filter(Boolean).join(' · ') + '. 당일 안내는 아래 공지를 확인해 주세요.'));
-    } else if (st.key === 'done') {
-      action.append(el('p', { class: 'line1' }, '종료된 회차입니다'),
-        el('p', { class: 'line2', style: 'margin:0' }, '공지와 댓글은 계속 볼 수 있습니다.'));
-    } else if (s.applyType === 'form') {
-      if (st.key === 'apply') {
-        const n = daysBetween(T, s.applyEnd);
-        action.append(
-          el('p', { class: 'line1' }, `${s.applyLabel} 접수 중`),
-          el('p', { class: 'line2' }, `${mdw(s.applyEnd)}까지 `, el('span', { class: 'dday' }, n === 0 ? '오늘 마감' : `D-${n}`),
-            ` · 현재 ${s.applicants}명 신청`),
-          el('button', { class: 'btn primary big-btn', onclick: () => openApply(s) }, `${s.applyLabel}하기`));
-      } else if (T < s.applyStart) {
-        action.append(el('p', { class: 'line1' }, `${s.applyLabel} 예정`),
-          el('p', { class: 'line2', style: 'margin:0' }, `신청 기간 ${mdw(s.applyStart)} ~ ${mdw(s.applyEnd)}`));
-      } else {
-        action.append(el('p', { class: 'line1' }, `신청 마감 · 진행까지 D-${daysBetween(T, s.date)}`),
-          el('p', { class: 'line2', style: 'margin:0' }, `신청자 대상 안내는 아래 공지를 확인해 주세요.`));
-      }
-    } else if (s.applyType === 'comment') {
-      const target = posts.find((p) => p.pinned) || posts[0];
-      if (st.key === 'apply') {
-        const n = daysBetween(T, s.applyEnd);
-        action.append(
-          el('p', { class: 'line1' }, `${s.applyLabel} 진행 중`),
-          el('p', { class: 'line2' }, `공지글에 댓글로 남겨 주세요. ${mdw(s.applyEnd)}까지 `, el('span', { class: 'dday' }, n === 0 ? '오늘 마감' : `D-${n}`)),
-          target ? el('button', { class: 'btn primary big-btn', onclick: () => showPost(target.id) }, `공지글에서 ${s.applyLabel}하기`) : null);
-      } else if (T < s.applyStart) {
-        action.append(el('p', { class: 'line1' }, `${s.applyLabel} 예정`),
-          el('p', { class: 'line2', style: 'margin:0' }, `${mdw(s.applyStart)} ~ ${mdw(s.applyEnd)}, 공지글 댓글로 받습니다.`));
-      } else {
-        action.append(el('p', { class: 'line1' }, `${s.applyLabel} 마감 · 진행까지 D-${daysBetween(T, s.date)}`),
-          el('p', { class: 'line2', style: 'margin:0' }, '이후 안내는 아래 공지를 확인해 주세요.'));
-      }
-    }
-    if (s.applyType === 'form' && st.key !== 'upcoming') {
-      action.append(el('div', { class: 'row-links' },
-        el('button', { class: 'link', onclick: openCheck }, '내 신청 확인하기')));
-    }
-
+    // 2) 공지 · 안내
     const adminBar = adminToken ? el('div', { class: 'admin-bar' },
       el('button', { class: 'btn primary', onclick: () => showEditor(null, s.no) }, '이 회차에 글쓰기'),
       s.applyType === 'form' ? el('button', { class: 'btn', onclick: () => openApps(s) }, `신청자 보기 (${s.applicants})`) : null
     ) : null;
-
     const list = posts.length ? postList(posts, true)
       : el('div', { class: 'empty small' }, st.key === 'upcoming' ? `${mdw(openDate(s))}에 첫 공지가 올라옵니다.` : '아직 올라온 공지가 없습니다.');
 
-    return el('section', { class: 'panel', role: 'tabpanel' },
-      el('div', { class: 'panel-head' },
-        el('div', { class: 'big', 'aria-hidden': 'true' }, ROMAN[s.no]),
-        el('div', {},
-          el('div', { class: 'kicker' }, `${s.no}회 · ${s.en || ''}`),
-          el('h2', {}, s.title),
-          el('div', { class: 'facts' },
-            el('span', {}, el('b', {}, '일시'), `${mdw(s.date)} ${s.time || ''}`),
-            s.place ? el('span', {}, el('b', {}, '장소'), s.place) : null))),
-      s.summary ? el('p', { class: 'summary' }, s.summary) : null,
-      el('div', { class: 'panel-grid' },
-        el('div', {}, el('h3', {}, '진행 순서'), steps),
-        el('div', {}, action, adminBar, el('h3', {}, `공지 · 안내 ${posts.length}`), list)));
+    // 3) 다음 일정 → 신청 기간에는 바로 누르는 버튼
+    const next = el('div');
+    const dd = (n) => (n === 0 ? '오늘 마감' : `D-${n}`);
+    if (st.key === 'apply' && s.applyType === 'form') {
+      next.append(el('button', { class: 'cta', onclick: () => openApply(s) },
+        `${s.applyLabel}하기`,
+        el('small', {}, `${mdw(s.applyEnd)}까지 · `, el('b', {}, dd(daysBetween(T, s.applyEnd))))));
+    } else if (st.key === 'apply' && s.applyType === 'comment') {
+      const target = posts.find((p) => p.pinned) || posts[0];
+      next.append(target
+        ? el('button', { class: 'cta', onclick: () => showPost(target.id, null, true) },
+            `${s.applyLabel}하기`,
+            el('small', {}, `공지글 댓글로 작성 · ${mdw(s.applyEnd)}까지 `, el('b', {}, dd(daysBetween(T, s.applyEnd)))))
+        : el('div', { class: 'next' },
+            el('p', { class: 'lbl' }, `${s.applyLabel} 진행 중`),
+            el('p', { class: 'what' }, '공지글이 곧 올라옵니다'),
+            el('p', { class: 'sub' }, '공지글이 올라오면 여기에 작성 버튼이 생깁니다.')));
+    } else {
+      let lbl = '다음 일정', what = '', sub = null;
+      if (st.key === 'today') {
+        lbl = '오늘'; what = `${s.title} 진행`;
+        sub = [s.time, s.place].filter(Boolean).join(' · ');
+      } else if (st.key === 'done') {
+        lbl = '종료'; what = '모든 일정이 끝났습니다';
+        sub = '공지와 댓글은 계속 볼 수 있습니다.';
+      } else {
+        const nm = ms.find((m) => m.date > T);
+        if (nm) {
+          const isApply = nm.endDate && s.applyStart === nm.date;
+          what = `${nm.label}${isApply ? ' 예정' : ''}`;
+          sub = el('span', {}, mdw(nm.date) + (nm.endDate ? ` ~ ${mdw(nm.endDate)}` : '') + ' · ',
+            el('span', { class: 'dday' }, `D-${daysBetween(T, nm.date)}`));
+        }
+      }
+      next.append(el('div', { class: 'next' },
+        lbl !== '다음 일정' ? el('p', { class: 'lbl' }, lbl) : null, el('p', { class: 'what' }, what), sub ? el('p', { class: 'sub' }, sub) : null));
+    }
+    if (s.applyType === 'form' && ['apply', 'ready', 'today'].includes(st.key)) {
+      next.append(el('div', { class: 'under-links' }, el('button', { class: 'link', onclick: openCheck }, '내 신청 확인하기')));
+    }
+
+    return el('div', { class: 'panel', role: 'tabpanel', 'aria-label': `${s.no}회 ${s.title}` },
+      el('section', {}, el('h3', {}, '진행 순서'), steps),
+      el('section', {}, el('h3', {}, `공지 · 안내 ${posts.length}`), adminBar, list),
+      el('section', {}, el('h3', {}, st.key === 'apply' ? '지금 할 일' : '다음 일정'), next));
   }
 
   function postList(posts, compact) {
@@ -736,7 +751,7 @@
       el('button', { class: 'chip', 'aria-pressed': String(newsFilter === v), onclick: () => { newsFilter = v; renderHome(); } }, label)));
     return el('section', { class: 'news' },
       el('div', { class: 'news-head' },
-        el('h2', {}, '전체 소식'),
+        el('h2', {}, '전체 글 관리'),
         adminToken ? el('button', { class: 'btn primary', onclick: () => showEditor(null, 0) }, '공통 공지 쓰기') : null),
       el('div', { style: 'margin-bottom:12px' }, chips),
       posts.length ? postList(posts, false) : el('div', { class: 'empty small' }, '해당하는 글이 없습니다.'));
@@ -840,12 +855,17 @@
   applyDlg.addEventListener('close', () => applyDlg.classList.remove('xwide'));
 
   /* ───── 상세 + 댓글 ───── */
-  async function showPost(id, data) {
+  async function showPost(id, data, focusComment) {
     current = { view: 'post', postId: id };
     if (!data) view.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
     try {
       const p = data || await api('getPost', id);
       renderPost(p);
+      if (focusComment) {
+        // 희망곡 작성하기 → 댓글 입력칸으로 바로 이동
+        const f = document.querySelector('.cform');
+        if (f) { f.scrollIntoView({ block: 'center' }); f.elements['name'].focus({ preventScroll: true }); return; }
+      }
       window.scrollTo(0, 0);
     } catch (e) { handleErr(e); showHome(); }
   }
