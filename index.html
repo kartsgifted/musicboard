@@ -140,6 +140,35 @@
   label.check { display: flex; gap: 8px; align-items: center; font-size: 16px; }
   label.check input { width: auto; accent-color: var(--teal); }
 
+  /* 첨부: 상세 화면 */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 28px; }
+  .gallery.single { grid-template-columns: 1fr; }
+  .gallery a { display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .gallery img { display: block; width: 100%; height: 100%; max-height: 640px; object-fit: contain; background: #fff; }
+  .gallery:not(.single) img { aspect-ratio: 4 / 3; object-fit: cover; }
+  .files { list-style: none; margin: 28px 0 0; padding: 0; border-top: 1px solid var(--line); }
+  .files li { border-bottom: 1px solid var(--line); }
+  .files a { display: flex; gap: 12px; align-items: baseline; padding: 12px 4px; color: var(--ink); text-decoration: none; }
+  .files a:hover .fname { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+  .fname { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .fsize { margin-left: auto; color: var(--muted); font-size: 14px; white-space: nowrap; }
+  .ftag { font-family: var(--head); font-size: 12px; font-weight: 700; color: var(--teal); border: 1px solid var(--teal); border-radius: 2px; padding: 0 6px; white-space: nowrap; }
+  .clip { color: var(--muted); font-size: 14px; font-weight: 500; margin-left: 8px; font-family: var(--sans); }
+
+  /* 첨부: 글쓰기 화면 */
+  .drop {
+    border: 1.5px dashed var(--line); border-radius: 4px; background: #fff;
+    padding: 20px; text-align: center; color: var(--muted); font-size: 15px; cursor: pointer;
+  }
+  .drop.over { border-color: var(--teal); background: var(--teal-soft); color: var(--teal); }
+  .drop b { color: var(--teal); }
+  .att-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .att-list li { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 8px 12px; font-size: 15px; }
+  .att-list .thumb { width: 44px; height: 44px; flex: none; border-radius: 2px; object-fit: cover; background: var(--ivory); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--muted); }
+  .att-list .fname { flex: 1; font-weight: 500; }
+  .att-list .state { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .att-list .state.err { color: var(--coral); }
+
   footer.site { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
 
   dialog { border: 0; border-top: 4px solid var(--teal); border-radius: 4px; padding: 28px; width: min(380px, 90vw); }
@@ -273,7 +302,8 @@
       const body = posts.length
         ? el('ul', { class: 'list' }, posts.map((p) =>
             el('li', {}, el('button', { onclick: () => showPost(p.id) },
-              el('span', { class: 't' }, p.pinned ? el('span', { class: 'pin' }, '고정') : null, p.title),
+              el('span', { class: 't' }, p.pinned ? el('span', { class: 'pin' }, '고정') : null, p.title,
+                p.fileCount ? el('span', { class: 'clip' }, `첨부 ${p.fileCount}`) : null),
               el('span', { class: 'cc' }, p.commentCount ? `댓글 ${p.commentCount}` : ''),
               el('span', { class: 'meta' }, fmt(p.createdAt))
             ))))
@@ -300,6 +330,7 @@
       el('h2', {}, p.pinned ? el('span', { class: 'pin' }, '고정') : null, p.title),
       el('div', { class: 'meta' }, fmt(p.createdAt) + (p.updatedAt ? ` (수정 ${fmt(p.updatedAt)})` : '')),
       el('div', { class: 'body' }, p.content),
+      renderAttachments(p.attachments || []),
       adminToken ? el('div', { class: 'admin-actions' },
         el('button', { class: 'btn', onclick: () => showEditor(p) }, '수정'),
         el('button', { class: 'btn danger', onclick: () => removePost(p.id) }, '삭제')
@@ -335,6 +366,70 @@
     );
 
     view.replaceChildren(back, art, sec);
+  }
+
+  /* ───── 첨부파일 ───── */
+  const imgUrl = (id, w) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${w}`;
+  const viewUrl = (id) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
+  const downUrl = (id) => `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
+
+  function fsize(n) {
+    if (!n) return '';
+    if (n < 1024 * 1024) return Math.max(1, Math.round(n / 1024)) + 'KB';
+    return (n / 1024 / 1024).toFixed(1) + 'MB';
+  }
+  function ext(name) {
+    const m = /\.([a-z0-9]{1,5})$/i.exec(name || '');
+    return m ? m[1].toUpperCase() : 'FILE';
+  }
+
+  function renderAttachments(list) {
+    const imgs = list.filter((a) => a.image);
+    const frag = document.createDocumentFragment();
+    if (imgs.length) {
+      frag.append(el('div', { class: 'gallery' + (imgs.length === 1 ? ' single' : '') },
+        imgs.map((a) => el('a', { href: viewUrl(a.id), target: '_blank', rel: 'noopener' },
+          el('img', { src: imgUrl(a.id, 1600), alt: a.name, loading: 'lazy' })))));
+    }
+    // 원본 내려받기 목록 (그림 포함 전체)
+    if (list.length) {
+      frag.append(el('ul', { class: 'files' }, list.map((a) =>
+        el('li', {}, el('a', { href: downUrl(a.id), target: '_blank', rel: 'noopener' },
+          el('span', { class: 'ftag' }, ext(a.name)),
+          el('span', { class: 'fname' }, a.name),
+          el('span', { class: 'fsize' }, fsize(a.size)))))));
+    }
+    return frag;
+  }
+
+  const MAX_FILE_MB = 10;
+  const MAX_FILES = 10;
+
+  // 큰 사진은 가로 2000px로 줄여서 업로드 (JPEG·WebP·PNG)
+  async function shrinkImage(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 1.5 * 1024 * 1024) return file;
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+      if (scale === 1 && file.type === 'image/png') return file;
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+      const blob = await new Promise((r) => c.toBlob(r, type, 0.88));
+      if (!blob || blob.size >= file.size) return file;
+      const name = type === 'image/jpeg' ? file.name.replace(/\.(png|webp)$/i, '.jpg') : file.name;
+      return new File([blob], name, { type });
+    } catch (e) { return file; }
+  }
+
+  function toBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(',')[1] || '');
+      r.onerror = () => reject(new Error('파일을 읽지 못했습니다.'));
+      r.readAsDataURL(file);
+    });
   }
 
   async function submitComment(ev, postId) {
@@ -379,28 +474,102 @@
   /* ───── 글쓰기 / 수정 (관리자) ───── */
   function showEditor(p = null) {
     current = { view: 'editor', postId: p && p.id };
+    // 첨부 목록: 업로드 완료된 항목은 meta를 가짐
+    const items = (p && p.attachments || []).map((a) => ({ meta: a, state: 'done' }));
+    let uploading = 0;
+
+    const listEl = el('ul', { class: 'att-list' });
+    const fileInput = el('input', { type: 'file', multiple: true, hidden: true });
+    const drop = el('div', { class: 'drop', tabindex: '0', role: 'button' },
+      el('b', {}, '파일 선택'), ' 또는 여기로 끌어다 놓기. 그림, 문서, 악보 모두 가능 (파일당 ' + MAX_FILE_MB + 'MB, 최대 ' + MAX_FILES + '개)');
+
+    function drawList() {
+      listEl.replaceChildren(...items.map((it) => {
+        const name = it.meta ? it.meta.name : it.file.name;
+        const isImg = it.meta ? it.meta.image : /^image\//.test(it.file.type);
+        const thumb = isImg && (it.preview || (it.meta && imgUrl(it.meta.id, 120)))
+          ? el('img', { class: 'thumb', src: it.preview || imgUrl(it.meta.id, 120), alt: '' })
+          : el('span', { class: 'thumb' }, ext(name));
+        const state = it.state === 'uploading' ? '올리는 중…'
+          : it.state === 'error' ? it.error
+          : fsize(it.meta && it.meta.size);
+        return el('li', {}, thumb,
+          el('span', { class: 'fname' }, name),
+          el('span', { class: 'state' + (it.state === 'error' ? ' err' : '') }, state),
+          it.state === 'uploading' ? null :
+            el('button', { type: 'button', class: 'link danger', onclick: () => {
+              items.splice(items.indexOf(it), 1);
+              if (it.preview) URL.revokeObjectURL(it.preview);
+              drawList();
+            } }, '빼기'));
+      }));
+      submitBtn.disabled = uploading > 0;
+      submitBtn.textContent = uploading > 0 ? '파일 올리는 중…' : (p ? '수정 완료' : '등록');
+    }
+
+    async function addFiles(fileList) {
+      for (const raw of Array.from(fileList)) {
+        if (items.length >= MAX_FILES) { toast(`첨부파일은 ${MAX_FILES}개까지 올릴 수 있습니다.`, true); break; }
+        const it = { file: raw, state: 'uploading' };
+        if (/^image\//.test(raw.type)) it.preview = URL.createObjectURL(raw);
+        items.push(it);
+        uploading++;
+        drawList();
+        try {
+          const file = await shrinkImage(raw);
+          if (file.size > MAX_FILE_MB * 1024 * 1024) throw new Error(`${MAX_FILE_MB}MB 초과`);
+          const b64 = await toBase64(file);
+          it.meta = await api('uploadFile', adminToken, file.name, file.type, b64);
+          it.state = 'done';
+        } catch (e) {
+          it.state = 'error';
+          it.error = e.message.length > 20 ? '업로드 실패' : e.message;
+          if (/로그인이 만료/.test(e.message)) handleErr(e);
+        }
+        uploading--;
+        drawList();
+      }
+    }
+
+    fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
+    drop.addEventListener('click', () => fileInput.click());
+    drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+    drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); });
+
+    const submitBtn = el('button', { type: 'submit', class: 'btn primary' }, p ? '수정 완료' : '등록');
+
     const form = el('form', { class: 'editor', onsubmit: async (ev) => {
         ev.preventDefault();
-        const btn = form.querySelector('button[type=submit]');
-        btn.disabled = true;
+        if (uploading > 0) return;
+        if (items.some((it) => it.state === 'error') &&
+            !confirm('올리지 못한 파일이 있습니다. 그 파일은 빼고 등록할까요?')) return;
+        submitBtn.disabled = true;
         try {
           const id = await api('savePost', adminToken, {
-            id: p && p.id, title: form.elements['title'].value, content: form.elements['content'].value, pinned: form.elements['pinned'].checked,
+            id: p && p.id,
+            title: form.elements['title'].value,
+            content: form.elements['content'].value,
+            pinned: form.elements['pinned'].checked,
+            attachments: items.filter((it) => it.state === 'done').map((it) => it.meta),
           });
           toast(p ? '글을 수정했습니다.' : '글을 등록했습니다.');
           showPost(id);
-        } catch (e) { handleErr(e); btn.disabled = false; }
+        } catch (e) { handleErr(e); submitBtn.disabled = false; }
       } },
       el('input', { name: 'title', placeholder: '제목', maxlength: 100, required: true }),
       el('textarea', { name: 'content', placeholder: '내용', maxlength: 10000, required: true }),
+      drop, fileInput, listEl,
       el('label', { class: 'check' }, el('input', { type: 'checkbox', name: 'pinned' }), '목록 맨 위에 고정'),
       el('div', { class: 'form-end' },
         el('button', { type: 'button', class: 'btn', onclick: () => (p ? showPost(p.id) : showList()) }, '취소'),
-        el('button', { type: 'submit', class: 'btn primary' }, p ? '수정 완료' : '등록')
+        submitBtn
       )
     );
     if (p) { form.elements['title'].value = p.title; form.elements['content'].value = p.content; form.elements['pinned'].checked = p.pinned; }
     view.replaceChildren(el('div', { class: 'toolbar' }, el('strong', {}, p ? '글 수정' : '새 글 작성')), form);
+    drawList();
     form.elements['title'].focus();
   }
 
