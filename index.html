@@ -874,7 +874,10 @@
     const base = baseTeamSession();
     return (board.songs || []).filter((x) => x.session === base);
   }
-  const songsFor = (s, t) => songsOfSession(s.no).filter((x) => normEns(x.ensemble) === normEns(t.ensemble));
+  // 곡에 지정된 편성(여러 개 가능, 비어 있으면 모든 편성)에 이 팀 편성이 들어가는지
+  const ensOf = (x) => (x.ensembles && x.ensembles.length ? x.ensembles : String(x.ensemble || '').split(/[,，]/).map((e) => e.trim()).filter(Boolean));
+  const ensMatch = (x, t) => { const l = ensOf(x); return !l.length || l.some((e) => normEns(e) === normEns(t.ensemble)); };
+  const songsFor = (s, t) => songsOfSession(s.no).filter((x) => ensOf(x).length && ensMatch(x, t));
   // 팀의 지정곡: teams 탭 fixedSong 우선, 없으면 songs 탭에서 detail이 '지정곡'인 곡
   const isFixedRow = (x) => /^지정곡$/.test(String(x.detail || '').trim());
   // 팀에 배정된 지정곡: 관리자 '지정곡 관리'(songs 탭: 회차·편성·팀 조건) + 예전 방식(teams 탭 fixedSong)
@@ -882,7 +885,7 @@
     const out = [];
     String(t.fixedSong || '').split(/\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => out.push({ song: x, detail: '' }));
     songsOfSession(s.no).filter((x) => x.song
-        && (!x.ensemble || normEns(x.ensemble) === normEns(t.ensemble))
+        && ensMatch(x, t)
         && (!(x.teams || []).length || x.teams.includes(t.team)))
       .forEach((x) => { if (!out.some((o) => o.song === x.song)) out.push({ song: x.song, detail: isFixedRow(x) ? '' : x.detail }); });
     return out;
