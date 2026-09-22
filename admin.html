@@ -147,13 +147,39 @@
   table.tedit { table-layout: fixed; min-width: 880px; }
   table.tedit th:nth-child(1) { width: 15%; } table.tedit th:nth-child(2) { width: 13%; } table.tedit th:nth-child(3) { width: 34%; }
   table.tedit th:nth-child(4) { width: 30%; } table.tedit th:nth-child(5) { width: 8%; }
-  table.tedit td { padding: 6px; }
+  table.tedit td { padding: 6px; vertical-align: top; }
+  table.tedit.nosong th:nth-child(1) { width: 17%; } table.tedit.nosong th:nth-child(2) { width: 14%; } table.tedit.nosong th:nth-child(3) { width: 45%; }
+  table.tedit.nosong th:nth-child(4) { width: 16%; } table.tedit.nosong th:nth-child(5) { width: 8%; }
+  table.tedit.wish th:nth-child(1) { width: 13%; } table.tedit.wish th:nth-child(2) { width: 11%; } table.tedit.wish th:nth-child(3) { width: 30%; }
+  table.tedit.wish th:nth-child(4) { width: 25%; } table.tedit.wish th:nth-child(5) { width: 14%; } table.tedit.wish th:nth-child(6) { width: 7%; }
+  table.tedit textarea { width: 100%; padding: 7px 9px; font-size: 14px; border: 1px solid var(--line); border-radius: 4px; resize: vertical; font-family: inherit; line-height: 1.5; }
+  table.tedit textarea.changed { border-color: var(--coral); background: #FFF6F6; }
+  .allow { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding-top: 8px; cursor: pointer; }
+  .allow input { width: auto !important; accent-color: var(--teal); }
   table.tedit input { width: 100%; padding: 7px 9px; font-size: 14px; }
   table.tedit input.changed { border-color: var(--coral); background: #FFF6F6; }
   .editbar { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
   .editbar .sp { flex: 1; }
   .dirty { color: var(--coral); font-size: 14px; font-weight: 600; }
   .note { font-size: 13px; color: var(--muted); margin: 10px 0 0; line-height: 1.6; }
+
+  /* 지정곡 관리 */
+  .songcards { display: grid; gap: 12px; }
+  .sc { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; background: #fff; }
+  .sc-row1 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto; gap: 10px; align-items: end; }
+  .sc-row2 { display: grid; grid-template-columns: auto minmax(160px, 220px) minmax(0, 1fr); gap: 14px; align-items: start; }
+  .sc .grp { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .sc .boxes { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sc .boxes label { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; white-space: nowrap; }
+  .sc .boxes label:has(input:checked) { border-color: var(--teal); background: var(--teal-soft); }
+  .sc .boxes input { accent-color: var(--teal); margin: 0; }
+  .sc .scope { font-size: 13px; color: var(--teal-deep); background: var(--teal-soft); border-radius: 4px; padding: 6px 10px; }
+  .sc.changed { border-color: var(--coral); }
+  .preview { margin-top: 24px; }
+  .preview h4 { font-family: var(--head); font-size: 15px; margin: 0 0 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .preview td .none { color: var(--muted); }
+  .preview td ul { margin: 0; padding-left: 16px; }
+  @media (max-width: 900px) { .sc-row1, .sc-row2 { grid-template-columns: 1fr; } }
 
   /* 일정 관리 */
   .sched { display: grid; gap: 16px; }
@@ -230,6 +256,7 @@
   let tab = 'posts', postFilter = 'all', appSession = null, appQuery = '';
   let teamSession = null, teamDraft = null, teamDirty = false;   // 팀 편성 관리
   let sched = null, schedDirty = false;                            // 일정 관리
+  let songDraft = null, songDirty = false, songView = null;         // 지정곡 관리
 
   const $ = (s) => document.querySelector(s);
   const app = $('#app');
@@ -321,7 +348,7 @@
     app.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
     try {
       [board, apps] = await Promise.all([api('getBoard'), api('adminGetApplications', token, 0)]);
-      teamDraft = null; teamDirty = false; sched = null; schedDirty = false;
+      teamDraft = null; teamDirty = false; sched = null; schedDirty = false; songDraft = null; songDirty = false;
       const formSessions = board.sessions.filter((s) => s.applyType === 'form');
       if (!appSession || !formSessions.some((s) => s.no === appSession)) appSession = formSessions[0] ? formSessions[0].no : null;
       render();
@@ -351,18 +378,20 @@
           el('div', {}, el('b', {}, String(apps.filter((a) => a.session === s.no).length)), el('span', {}, `${s.no}회`)))),
         el('div', { class: 'l' }, el('b', {}, '참가 신청'), '회차별 인원')));
 
-    const tabDefs = [['posts', '전체 글 관리', posts.length], ['wishes', '희망곡 현황', teams.length ? `${wishTeams}/${teams.length}` : ''], ['apps', '참가 신청', apps.length], ['teams', '팀 편성 관리', ''], ['sched', '일정 관리', '']];
+    const tabDefs = [['posts', '전체 글 관리', posts.length], ['wishes', '희망곡 현황', teams.length ? `${wishTeams}/${teams.length}` : ''], ['apps', '참가 신청', apps.length], ['teams', '팀 편성 관리', ''], ['songs', '지정곡 관리', (board.songs || []).filter((x) => x.song).length ? String(new Set((board.songs || []).filter((x) => x.song).map((x) => x.song)).size) : ''], ['sched', '일정 관리', '']];
     const tabs = el('div', { class: 'tabs', role: 'tablist' }, tabDefs.map(([k, label, n]) =>
       el('button', { class: 'tab', role: 'tab', 'aria-selected': String(tab === k), onclick: () => {
         if (tab === 'teams' && k !== 'teams' && teamDirty && !confirm('저장하지 않은 팀 편성 변경이 있습니다. 이동할까요?')) return;
         if (tab === 'sched' && k !== 'sched' && schedDirty && !confirm('저장하지 않은 일정 변경이 있습니다. 이동할까요?')) return;
+        if (tab === 'songs' && k !== 'songs' && songDirty && !confirm('저장하지 않은 지정곡 변경이 있습니다. 이동할까요?')) return;
+        if (k !== 'songs') { songDraft = null; songDirty = false; }
         if (k !== 'teams') { teamDraft = null; teamDirty = false; }
         if (k !== 'sched') { sched = null; schedDirty = false; }
         tab = k; render(); } },
         label, n !== '' ? el('span', { class: 'n' }, String(n)) : null)));
 
     const pane = el('section', { class: 'pane', role: 'tabpanel' },
-      tab === 'posts' ? postsPane() : tab === 'wishes' ? wishesPane() : tab === 'teams' ? teamsPane() : tab === 'sched' ? schedPane() : appsPane());
+      tab === 'posts' ? postsPane() : tab === 'wishes' ? wishesPane() : tab === 'teams' ? teamsPane() : tab === 'songs' ? songsPane() : tab === 'sched' ? schedPane() : appsPane());
 
     app.replaceChildren(el('main', {}, stats, tabs, pane));
   }
@@ -607,7 +636,7 @@
     const inherited = !own.length && s.no !== base;
     if (!teamDraft) {
       teamDraft = teamsFor(s.no).map((t) => ({ ensemble: t.ensemble, team: t.team, members: memberText(t),
-        fixedSong: t.fixedSong || '', selectedSong: t.selectedSong || '', orig: t.team }));
+        fixedSong: t.fixedSong || '', selectedSong: t.selectedSong || '', allowOther: t.allowOther !== false, orig: t.team }));
       teamDirty = false;
     }
     const isWish = s.applyType === 'comment';
@@ -636,20 +665,33 @@
       i.addEventListener('input', () => { row[key] = i.value; i.classList.add('changed'); markDirty(); });
       return i;
     };
+    // 지정곡: 한 줄에 한 곡 (여러 곡 가능)
+    const area = (row, key, ph) => {
+      const a = el('textarea', { placeholder: ph, rows: Math.max(2, String(row[key] || '').split('\n').length) });
+      a.value = row[key] || '';
+      a.addEventListener('input', () => { row[key] = a.value; a.classList.add('changed'); a.rows = Math.max(2, a.value.split('\n').length); markDirty(); });
+      return a;
+    };
+    const chk = (row) => {
+      const c = el('input', { type: 'checkbox', checked: row.allowOther !== false, 'aria-label': '지정곡 외 희망곡 선택 허용' });
+      c.addEventListener('change', () => { row.allowOther = c.checked; markDirty(); });
+      return el('label', { class: 'allow' }, c, '기타 허용');
+    };
     const rows = teamDraft.map((row, idx) => el('tr', {},
       el('td', {}, inp(row, 'ensemble', '예: 피아노 듀오', { list: 'ensOpts' })),
       el('td', {}, inp(row, 'team', '예: 듀오 1팀')),
       el('td', {}, inp(row, 'members', '이름(악기), 이름(악기)')),
-      el('td', {}, inp(row, isWish ? 'selectedSong' : 'fixedSong', isWish ? '10/5 곡 선정 후 입력' : '이 회차 지정곡 (비우면 추후 안내)')),
+      isWish ? el('td', {}, inp(row, 'selectedSong', '10/5 곡 선정 후 입력')) : null,
+      el('td', {}, chk(row)),
       el('td', {}, el('button', { class: 'btn sm danger', title: '이 팀 빼기', onclick: () => {
         teamDraft.splice(idx, 1); teamDirty = true; render(); } }, '빼기'))));
 
-    const table = el('div', { class: 'tbl-wrap' }, el('table', { class: 'tedit' },
-      el('thead', {}, el('tr', {}, ['편성', '팀 이름', '구성원', isWish ? '확정곡' : '지정곡', ''].map((x) => el('th', {}, x)))),
+    const table = el('div', { class: 'tbl-wrap' }, el('table', { class: 'tedit ' + (isWish ? 'wish' : 'nosong') },
+      el('thead', {}, el('tr', {}, (isWish ? ['편성', '팀 이름', '구성원', '확정곡', '희망곡 선택', ''] : ['편성', '팀 이름', '구성원', '희망곡 선택', '']).map((x) => el('th', {}, x)))),
       el('tbody', {}, rows)), dl);
 
     const bar = el('div', { class: 'editbar' },
-      el('button', { class: 'btn', onclick: () => { teamDraft.push({ ensemble: '', team: '', members: '', fixedSong: '', selectedSong: '' }); teamDirty = true; render();
+      el('button', { class: 'btn', onclick: () => { teamDraft.push({ ensemble: '', team: '', members: '', fixedSong: '', selectedSong: '', allowOther: true }); teamDirty = true; render();
         requestAnimationFrame(() => { const r = document.querySelectorAll('table.tedit tbody tr'); r[r.length - 1]?.querySelector('input')?.focus(); }); } }, '+ 팀 추가'),
       el('span', { class: 'dirty', hidden: !teamDirty }, '저장하지 않은 변경이 있어요'),
       el('span', { class: 'sp' }),
@@ -659,7 +701,8 @@
     const notes = el('div', {},
       inherited ? el('p', { class: 'note' }, `지금은 ${base}회차 편성을 그대로 보여주고 있어요. 구성을 바꾸거나 지정곡을 넣고 저장하면 ${s.no}회차 전용 편성이 만들어지고, ${base}회차 편성은 그대로 남습니다.`) : null,
       isWish ? el('p', { class: 'note' }, '1회차에서 팀 이름을 바꾸면, 이미 입력된 희망곡과의 연결이 끊어져요. 확정곡을 넣으면 학생 화면의 팀 카드에 확정곡으로 표시됩니다.')
-             : el('p', { class: 'note' }, '지정곡은 학생 화면의 팀 카드와 참가 신청서의 레슨 곡목에 미리 채워집니다.'),
+             : el('p', { class: 'note' }, '지정곡은 "지정곡 관리" 탭에서 곡을 기준으로 회차·편성·팀을 정해 넣어요.'),
+      el('p', { class: 'note' }, '"희망곡 선택"을 체크한 팀은 신청 화면의 지정곡 드롭다운에 "기타" 항목이 보여서, 지정곡 외에 팀원이 원하는 곡을 직접 입력할 수 있어요. 체크를 풀면 지정곡 중에서만 고를 수 있습니다.'),
       el('p', { class: 'note' }, '구성원은 쉼표로 구분하고, 악기는 괄호 안에 적어 주세요. 예: 김OO(피아노), 이OO(바이올린)'));
 
     return [el('div', { class: 'tools' }, chips), state, table, bar, notes];
@@ -670,7 +713,7 @@
     if (inherited && !teamDirty && !confirm(`변경 없이 ${s.no}회차 전용 편성으로 저장할까요?`)) return;
     try {
       board.teams = await api('adminSaveTeams', token, s.no, list.map((r) => ({
-        ensemble: r.ensemble, team: r.team, members: r.members, fixedSong: r.fixedSong, selectedSong: r.selectedSong })));
+        ensemble: r.ensemble, team: r.team, members: r.members, fixedSong: r.fixedSong, selectedSong: r.selectedSong, allowOther: r.allowOther !== false })));
       teamDraft = null; teamDirty = false; render(); toast(`${s.no}회차 팀 편성을 저장했습니다.`);
     } catch (e) { fail(e); }
   }
@@ -682,7 +725,137 @@
     catch (e) { fail(e); }
   }
 
-  window.addEventListener('beforeunload', (e) => { if (teamDirty || schedDirty) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', (e) => { if (teamDirty || schedDirty || songDirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ───── 6. 지정곡 관리 ─────
+   * 곡을 기준으로 회차(여러 개 가능) · 편성(전체 또는 하나) · 팀(선택 안 하면 그 편성 전체)을 정함 */
+  const teamSessionsForSongs = () => {
+    const base = baseTeamSession();
+    return board.sessions.filter((s) => s.no === base || s.applyMode === 'team' || (board.teams || []).some((t) => t.session === s.no));
+  };
+
+  function songEntriesFromBoard() {
+    const map = new Map();
+    (board.songs || []).filter((x) => x.song).forEach((x) => {
+      const teams = (x.teams || []).slice().sort();
+      const detail = /^지정곡$/.test(x.detail) ? '' : x.detail;
+      const key = [x.song, detail, x.ensemble, teams.join('|')].join('¶');
+      if (!map.has(key)) map.set(key, { song: x.song, detail, ensemble: x.ensemble, teams, sessions: [] });
+      map.get(key).sessions.push(x.session);
+    });
+    return [...map.values()];
+  }
+
+  function songsPane() {
+    const sessions = teamSessionsForSongs();
+    if (!songDraft) { songDraft = songEntriesFromBoard(); songDirty = false; }
+    const markDirty = (card) => { songDirty = true; if (card) card.classList.add('changed'); const d = document.querySelector('.songbar .dirty'); if (d) d.hidden = false; };
+    const allEns = [...new Set((board.teams || []).map((t) => t.ensemble))];
+
+    const cards = songDraft.map((e) => {
+      const card = el('div', { class: 'sc' });
+      const scope = el('div', { class: 'scope' });
+      const teamBox = el('div', { class: 'boxes' });
+      const describe = () => {
+        const ss = e.sessions.slice().sort((a, b) => a - b).map((n) => `${n}회`).join(', ') || '회차 미선택';
+        const who = e.teams.length ? e.teams.join(', ') : (e.ensemble ? `${e.ensemble} 전체 팀` : '모든 팀');
+        scope.textContent = `${ss} · ${who}에 지정곡으로 적용`;
+      };
+      const drawTeams = () => {
+        const cand = [];
+        e.sessions.forEach((no) => teamsFor(no).forEach((t) => {
+          if ((!e.ensemble || t.ensemble.replace(/\s/g, '') === e.ensemble.replace(/\s/g, '')) && !cand.includes(t.team)) cand.push(t.team);
+        }));
+        e.teams = e.teams.filter((x) => cand.includes(x));
+        teamBox.replaceChildren(...(cand.length ? cand.map((name) => {
+          const c = el('input', { type: 'checkbox', checked: e.teams.includes(name) });
+          c.addEventListener('change', () => {
+            e.teams = c.checked ? e.teams.concat(name) : e.teams.filter((x) => x !== name);
+            markDirty(card); describe(); });
+          return el('label', {}, c, name);
+        }) : [el('span', { style: 'font-weight:400' }, '회차를 먼저 고르세요')]));
+        describe();
+      };
+
+      const songIn = el('input', { value: e.song, placeholder: '예: F. Poulenc, Sonata for 1Piano 4Hands', maxlength: 300 });
+      songIn.addEventListener('input', () => { e.song = songIn.value; markDirty(card); });
+      const detailIn = el('input', { value: e.detail, placeholder: '선택 안내 (선택) 예: 中 선택 2', maxlength: 300 });
+      detailIn.addEventListener('input', () => { e.detail = detailIn.value; markDirty(card); });
+
+      const sessBox = el('div', { class: 'boxes' }, sessions.map((s) => {
+        const c = el('input', { type: 'checkbox', checked: e.sessions.includes(s.no) });
+        c.addEventListener('change', () => {
+          e.sessions = c.checked ? e.sessions.concat(s.no) : e.sessions.filter((x) => x !== s.no);
+          markDirty(card); drawTeams(); });
+        return el('label', {}, c, `${s.no}회`);
+      }));
+      const ensSel = el('select', {}, el('option', { value: '' }, '모든 편성'),
+        allEns.concat(e.ensemble && !allEns.includes(e.ensemble) ? [e.ensemble] : []).map((x) => el('option', { value: x, selected: x === e.ensemble }, x)));
+      ensSel.addEventListener('change', () => { e.ensemble = ensSel.value; markDirty(card); drawTeams(); });
+
+      card.append(
+        el('div', { class: 'sc-row1' },
+          el('label', { class: 'fl' }, '곡명', songIn),
+          el('label', { class: 'fl' }, '선택 안내', detailIn),
+          el('button', { class: 'btn sm danger', onclick: () => { songDraft.splice(songDraft.indexOf(e), 1); songDirty = true; render(); } }, '삭제')),
+        el('div', { class: 'sc-row2' },
+          el('div', { class: 'grp' }, '회차', sessBox),
+          el('label', { class: 'fl' }, '편성', ensSel),
+          el('div', { class: 'grp' }, el('span', {}, '팀 ', el('small', { style: 'font-weight:400' }, '(선택하지 않으면 편성 전체)')), teamBox)),
+        scope);
+      drawTeams();
+      return card;
+    });
+
+    const bar = el('div', { class: 'editbar songbar' },
+      el('button', { class: 'btn', onclick: () => {
+        songDraft.push({ song: '', detail: '', ensemble: '', teams: [], sessions: sessions.length ? [sessions[sessions.length - 1].no] : [] });
+        songDirty = true; render();
+        requestAnimationFrame(() => { const c = document.querySelectorAll('.sc'); c[c.length - 1]?.querySelector('input')?.focus(); }); } }, '+ 지정곡 추가'),
+      el('span', { class: 'dirty', hidden: !songDirty }, '저장하지 않은 변경이 있어요'),
+      el('span', { class: 'sp' }),
+      songDirty ? el('button', { class: 'btn', onclick: () => { songDraft = null; render(); } }, '변경 취소') : null,
+      el('button', { class: 'btn primary', onclick: saveSongs }, '지정곡 저장'));
+
+    // 팀별로 어떻게 적용되는지 미리보기 (저장된 값 기준)
+    if (!songView || !sessions.some((s) => s.no === songView)) songView = sessions.length ? sessions[sessions.length - 1].no : null;
+    const vs = sessions.find((s) => s.no === songView);
+    const preview = vs ? el('div', { class: 'preview' },
+      el('h4', {}, '팀별 적용 결과 (저장된 기준)',
+        el('span', { class: 'chips' }, sessions.map((s) => el('button', { class: 'chip', 'aria-pressed': String(s.no === vs.no), onclick: () => { songView = s.no; render(); } }, `${s.no}회`)))),
+      el('div', { class: 'tbl-wrap' }, el('table', {},
+        el('thead', {}, el('tr', {}, ['편성', '팀', '지정곡', '기타 곡'].map((x) => el('th', {}, x)))),
+        el('tbody', {}, teamsFor(vs.no).map((t) => {
+          const list = assignedSongs(vs.no, t);
+          return el('tr', {}, el('td', { class: 'nw' }, t.ensemble), el('td', { class: 'nw' }, el('b', {}, t.team)),
+            el('td', {}, list.length ? el('ul', {}, list.map((x) => el('li', {}, x))) : el('span', { class: 'none' }, '없음 (직접 입력)')),
+            el('td', { class: 'nw' }, el('span', { class: 'tag ' + (t.allowOther !== false ? 'ok' : 'no') }, t.allowOther !== false ? '허용' : '안 됨')));
+        }))))) : null;
+
+    return [
+      el('p', { class: 'note', style: 'margin:0 0 14px' }, '곡을 먼저 적고, 그 곡을 지정곡으로 쓸 회차·편성·팀을 고르세요. 팀을 고르지 않으면 선택한 편성의 모든 팀에 적용되고, 편성도 "모든 편성"이면 그 회차의 모든 팀에 적용됩니다.'),
+      el('div', { class: 'songcards' }, cards.length ? cards : el('div', { class: 'empty' }, '등록된 지정곡이 없습니다.')),
+      bar, preview];
+  }
+
+  // 저장된 songs 기준으로 팀에 배정된 곡 목록
+  function assignedSongs(no, t) {
+    const out = String(t.fixedSong || '').split(/\n/).map((x) => x.trim()).filter(Boolean);
+    (board.songs || []).filter((x) => x.session === no && x.song
+        && (!x.ensemble || x.ensemble.replace(/\s/g, '') === t.ensemble.replace(/\s/g, ''))
+        && (!(x.teams || []).length || x.teams.includes(t.team)))
+      .forEach((x) => { if (!out.includes(x.song)) out.push(x.song); });
+    return out;
+  }
+
+  async function saveSongs() {
+    const list = songDraft.filter((e) => e.song.trim());
+    if (list.length < songDraft.length && !confirm('곡명이 비어 있는 항목은 빼고 저장할까요?')) return;
+    try {
+      board.songs = await api('adminSaveSongs', token, list.map((e) => ({ song: e.song, detail: e.detail, ensemble: e.ensemble, teams: e.teams, sessions: e.sessions })));
+      songDraft = null; songDirty = false; render(); toast('지정곡을 저장했습니다.');
+    } catch (e) { fail(e); }
+  }
 
   /* ───── 5. 일정 관리 ─────
    * 회차 정보(sessions 탭)와 날짜 일정(milestones 탭)을 한 화면에서 고침.
