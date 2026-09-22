@@ -260,6 +260,19 @@
   .note.sel.past, .note.event.sel { background: var(--apricot); color: var(--ink); }
   .note.event.sel::after { background: var(--apricot); }
   .note:hover { transform: translate(-50%, -50%) scale(1.15); }
+  /* 마우스를 올리면 날짜 말풍선 (::after는 음표 기둥에 쓰므로 ::before 사용) */
+  .note::before, .tie::before {
+    content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%);
+    background: #fff; color: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 600; line-height: 1.35;
+    padding: 6px 10px; border-radius: 4px; white-space: pre; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s; z-index: 5;
+  }
+  .note:hover::before, .note:focus-visible::before, .tie:hover::before, .tie:focus-visible::before { opacity: 1; visibility: visible; }
+  .note:hover, .note:focus-visible, .tie:hover, .tie:focus-visible { z-index: 6; }
+  .note.event::before { bottom: auto; top: calc(100% + 8px); } /* 기둥이 위로 있으니 아래로 */
+  .tie:hover { background: rgba(255,255,255,.75); }
+  .tie.sel:hover { background: var(--apricot); }
+  .tie::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; } /* 막대를 가리키기 쉽게 */
   .tie { position: absolute; height: 6px; border-radius: 3px; background: rgba(255,255,255,.4); transform: translateY(-50%); cursor: pointer; border: 0; padding: 0; }
   .tie.sel { background: var(--apricot); }
   .dlabel { position: absolute; top: calc(var(--g) * 4 + 12px); transform: translateX(-50%); font-size: 12px; opacity: .8; white-space: nowrap; }
@@ -427,6 +440,11 @@
   .agree { font-size: 13px; color: var(--muted); background: var(--ivory); border-radius: 4px; padding: 12px; margin-top: 12px; }
   .agree label { display: flex; gap: 8px; align-items: center; color: var(--ink); font-weight: 600; font-size: 14px; margin-top: 8px; }
   .agree input { width: auto; accent-color: var(--teal); }
+  .seg { display: flex; gap: 6px; }
+  .fgrid .seg label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+  .seg input { width: auto; accent-color: var(--teal); margin: 0; }
+  .fgrid .seg label:has(input:checked) { border-color: var(--teal); background: var(--teal-soft); color: var(--teal-deep); }
+  .apply-note { font-size: 13px; color: var(--teal-deep); background: var(--teal-soft); border-radius: 4px; padding: 8px 10px; font-weight: 500; }
   .done-box { text-align: center; padding: 12px 0 4px; }
   .done-box .big { font-family: var(--head); font-weight: 800; font-size: 40px; color: var(--teal); }
   .result { list-style: none; margin: 14px 0 0; padding: 0; }
@@ -652,7 +670,7 @@
         if (m.endDate) {
           // 신청 기간: 날짜 없이 막대로만
           const t = el('button', {
-            class: 'tie' + (sel ? ' sel' : ''), title: `${s.no}회 ${m.label} (${md(m.date)}~${md(m.endDate)})`,
+            class: 'tie' + (sel ? ' sel' : ''), 'data-tip': `${mdw(m.date)} ~ ${mdw(m.endDate)}\n${s.no}회 ${m.label}`,
             'aria-label': `${s.no}회 ${m.label}`, onclick: () => selectSession(s.no, true),
           });
           t.style.left = x(m.date);
@@ -665,7 +683,7 @@
         const past = m.date < T || (isEvent && m.date <= T);
         const b = el('button', {
           class: 'note' + (isEvent ? ' event' : '') + (past ? ' past' : '') + (sel ? ' sel' : ''),
-          title: `${s.no}회 ${m.label} · ${md(m.date)}`,
+          'data-tip': `${mdw(m.date)}\n${s.no}회 ${m.label}`,
           'aria-label': `${s.no}회 ${m.label} ${md(m.date)}`,
           onclick: () => selectSession(s.no, true),
         }, isEvent ? ROMAN[s.no] : null);
@@ -793,7 +811,7 @@
     // 2) 공지 · 안내
     const adminBar = adminToken ? el('div', { class: 'admin-bar' },
       el('button', { class: 'btn primary', onclick: () => showEditor(null, s.no) }, '이 회차에 글쓰기'),
-      s.applyType === 'form' ? el('button', { class: 'btn', onclick: () => openApps(s) }, `신청자 보기 (${s.applicants})`) : null
+      s.applyType === 'form' ? el('a', { class: 'btn', href: 'admin.html', style: 'text-decoration:none' }, `신청 현황 (${s.applicants}${s.applyMode === 'team' ? '팀' : '명'})`) : null
     ) : null;
     const list = posts.length ? postList(posts, true)
       : el('div', { class: 'empty small' }, st.key === 'upcoming' ? `${mdw(openDate(s))}에 첫 공지가 올라옵니다.` : '아직 올라온 공지가 없습니다.');
@@ -1098,43 +1116,101 @@
 
   /* ───── 신청 ───── */
   const applyDlg = $('#applyDlg');
+  /* ───── 참가 신청 ─────
+   * 개인(2회): 이름 / 참여 여부 / 레슨 곡목
+   * 팀(3~4회): 본인 이름 / 실내악 편성 / 팀원 이름 / 참여 여부 / 레슨 곡목 — 팀원 중 한 명만 신청
+   * 비밀번호 4자리: 같은 이름(팀)으로 다시 내면 그 비밀번호로 수정됨 */
+  function rosterNames() {
+    return [...new Set((board.teams || []).flatMap((t) => t.members.map((m) => m.name)))].sort((x, y) => x.localeCompare(y, 'ko'));
+  }
+  function rosterTeams() {
+    const firstNo = (board.teams || []).reduce((n, t) => Math.min(n, t.session), 99);
+    return (board.teams || []).filter((t) => t.session === firstNo);
+  }
+
   function openApply(s) {
+    const team = s.applyMode === 'team';
+    const OTHER = '__direct__';
+    const names = rosterNames();
+    const nameList = el('datalist', { id: 'rosterNames' }, names.map((n) => el('option', { value: n })));
+
+    const attendSeg = el('div', { class: 'seg', role: 'radiogroup', 'aria-label': '참여 여부' },
+      ['참여', '불참'].map((v) => el('label', {}, el('input', { type: 'radio', name: 'attend', value: v, required: true }), v)));
+    const songWrap = el('label', { class: 'full' }, el('span', {}, '레슨 곡목 ', el('small', {}, team ? '(실내악 곡명 · 악장)' : '(작곡가 · 곡명 · 악장)')),
+      el('textarea', { name: 'song', maxlength: 300, style: 'min-height:70px',
+        placeholder: team ? '예: A. Arensky, Piano Trio No. 1, Op. 32, 1악장' : '예: J. Brahms, Violin Sonata No. 1, 1악장' }));
+    const syncAttend = () => {
+      const v = (form.querySelector('input[name=attend]:checked') || {}).value;
+      songWrap.hidden = v === '불참';
+      songWrap.querySelector('textarea').required = v === '참여';
+    };
+
+    // 팀 신청: 1회차 팀 편성에서 고르면 편성·팀원·곡이 채워짐
+    let teamFields = [];
+    if (team) {
+      const teams = rosterTeams();
+      const ensembles = [...new Set(teams.map((t) => t.ensemble))];
+      const teamSel = el('select', { name: 'team' },
+        el('option', { value: '' }, teams.length ? '우리 팀 선택' : '팀 편성 없음'),
+        teams.map((t) => el('option', { value: t.team }, `${t.team} (${t.ensemble})`)),
+        el('option', { value: OTHER }, '직접 입력'));
+      const ensSel = el('input', { name: 'ensemble', required: true, maxlength: 40, list: 'ensList', placeholder: '예: 피아노 트리오' });
+      const ensList = el('datalist', { id: 'ensList' }, ensembles.concat(['피아노 트리오', '피아노 듀오', '바이올린 & 피아노'].filter((x) => !ensembles.includes(x))).map((x) => el('option', { value: x })));
+      const members = el('input', { name: 'members', required: true, maxlength: 200, placeholder: '예: 김OO, 이OO, 박OO' });
+      teamSel.addEventListener('change', () => {
+        const t = teams.find((x) => x.team === teamSel.value);
+        if (!t) return;
+        ensSel.value = t.ensemble;
+        members.value = t.members.map((m) => m.name).join(', ');
+        const sa = form.elements['song'];
+        if (!sa.value) sa.value = t.selectedSong || fixedOf({ no: t.session }, t) || '';
+      });
+      teamFields = [
+        teams.length ? el('label', { class: 'full' }, el('span', {}, '우리 팀 ', el('small', {}, '(고르면 편성과 팀원이 채워져요)')), teamSel) : null,
+        el('label', {}, '실내악 편성', ensSel, ensList),
+        el('label', {}, el('span', {}, '팀원 이름 ', el('small', {}, '(쉼표로 구분)')), members),
+      ];
+    }
+
     const form = el('form', { onsubmit: async (ev) => {
         ev.preventDefault();
         const f = form.elements;
+        const attend = (form.querySelector('input[name=attend]:checked') || {}).value;
+        if (!attend) { toast('참여 여부를 선택해 주세요.', true); return; }
         const btn = form.querySelector('button[type=submit]');
         btn.disabled = true;
         try {
+          const teamVal = team && f['team'] && f['team'].value !== OTHER ? f['team'].value : '';
           const r = await api('applySession', s.no, {
-            name: f['name'].value, school: f['school'].value, grade: f['grade'].value,
-            instrument: f['instrument'].value, phone: f['phone'].value, message: f['message'].value, agree: f['agree'].checked,
+            name: f['name'].value, attend, song: f['song'].value, password: f['pw'].value,
+            ensemble: team ? f['ensemble'].value : '', members: team ? f['members'].value : '', team: teamVal,
           });
           applyDlg.replaceChildren(el('div', { class: 'done-box' },
             el('div', { class: 'big' }, ROMAN[s.no]),
-            el('h3', {}, `${r.title} 신청이 완료되었습니다`),
-            el('p', { class: 'meta' }, `멘토링 당일(${mdw(s.date)})까지 이 회차 카드의 공지를 확인해 주세요.`),
+            el('h3', {}, r.updated ? `${r.title} 신청 내용을 수정했습니다` : `${r.title} 신청이 완료되었습니다`),
+            el('p', { class: 'meta' }, attend === '참여'
+              ? `멘토링 당일(${mdw(s.date)})까지 이 회차의 공지를 확인해 주세요.`
+              : '불참으로 접수되었습니다. 바뀌면 마감 전까지 같은 이름과 비밀번호로 다시 신청해 주세요.'),
             el('div', { class: 'form-end', style: 'justify-content:center' },
               el('button', { class: 'btn primary', onclick: () => applyDlg.close() }, '확인'))));
-          s.applicants++;
           loadBoard().then(() => current.view === 'home' && renderHome()).catch(() => {});
         } catch (e) { toast(e.message, true); btn.disabled = false; }
       } },
       el('h3', {}, `${ROMAN[s.no]}. ${s.title} 신청`),
       el('p', { class: 'meta', style: 'margin:-8px 0 16px' }, `${mdw(s.date)} ${s.time || ''} · ${s.place || ''} / 마감 ${mdw(s.applyEnd)}`),
+      team ? el('p', { class: 'apply-note', style: 'margin:0 0 14px' }, '팀원 중 한 명만 신청하면 팀 전체가 신청됩니다.') : null,
       el('div', { class: 'fgrid' },
-        el('label', {}, '이름', el('input', { name: 'name', required: true, maxlength: 20, autocomplete: 'name' })),
-        el('label', {}, '휴대폰', el('input', { name: 'phone', required: true, inputmode: 'tel', placeholder: '010-0000-0000', autocomplete: 'tel' })),
-        el('label', {}, '소속 학교', el('input', { name: 'school', required: true, maxlength: 40 })),
-        el('label', {}, '학년', el('input', { name: 'grade', required: true, maxlength: 10, placeholder: '예: 중2' })),
-        el('label', { class: 'full' }, '전공 악기', el('input', { name: 'instrument', required: true, maxlength: 30, placeholder: '예: 바이올린' })),
-        el('label', { class: 'full' }, el('span', {}, '하고 싶은 말 ', el('small', {}, '(선택 · 희망 레슨곡, 질문 등)')),
-          el('textarea', { name: 'message', maxlength: 500, style: 'min-height:80px' }))),
-      el('div', { class: 'agree' },
-        '수집 항목: 이름, 휴대폰, 소속 학교, 학년, 전공 · 이용 목적: 멘토링 운영 및 안내 · 보유 기간: 사업 종료 시까지',
-        el('label', {}, el('input', { type: 'checkbox', name: 'agree', required: true }), '개인정보 수집·이용에 동의합니다')),
+        el('label', { class: 'full' }, team ? '본인 이름' : '이름',
+          el('input', { name: 'name', required: true, maxlength: 20, autocomplete: 'name', list: names.length ? 'rosterNames' : null }), nameList),
+        ...teamFields,
+        el('div', { class: 'full', style: 'display:grid;gap:6px;font-size:14px;font-weight:600' }, '참여 여부', attendSeg),
+        songWrap,
+        el('label', { class: 'full' }, el('span', {}, '비밀번호 ', el('small', {}, '(숫자 4자리 · 마감 전 수정할 때 필요)')),
+          el('input', { name: 'pw', type: 'password', inputmode: 'numeric', pattern: '\\d{4}', maxlength: 4, required: true }))),
       el('div', { class: 'form-end', style: 'margin-top:16px' },
         el('button', { type: 'button', class: 'btn', onclick: () => applyDlg.close() }, '취소'),
         el('button', { type: 'submit', class: 'btn primary' }, '신청하기')));
+    form.addEventListener('change', (e) => { if (e.target.name === 'attend') syncAttend(); });
     applyDlg.replaceChildren(form);
     applyDlg.showModal();
   }
@@ -1146,19 +1222,19 @@
         const btn = form.querySelector('button[type=submit]');
         btn.disabled = true;
         try {
-          const list = await api('checkApplication', form.elements['name'].value, form.elements['phone'].value);
+          const list = await api('checkApplication', form.elements['name'].value);
           out.replaceChildren(list.length
-            ? el('ul', { class: 'result' }, list.map((a) => el('li', {},
-                el('span', {}, el('span', { class: 'stag' }, `${a.session}회`), a.title),
-                el('span', { class: 'meta' }, `${fmt(a.createdAt)} 신청`))))
-            : el('p', { class: 'meta', style: 'margin-top:14px' }, '신청 내역이 없습니다. 이름과 번호를 다시 확인해 주세요.'));
+            ? el('ul', { class: 'result' }, list.map((a) => el('li', { style: 'display:block' },
+                el('div', {}, el('span', { class: 'stag' }, `${a.session}회`), a.title, ' · ', el('b', {}, a.attend)),
+                el('div', { class: 'meta' }, [a.team || a.ensemble, a.applicant !== form.elements['name'].value.trim() ? `신청자 ${a.applicant}` : '', a.song, `${fmt(a.createdAt)} 접수`].filter(Boolean).join(' · ')))))
+            : el('p', { class: 'meta', style: 'margin-top:14px' }, '신청 내역이 없습니다. 이름을 다시 확인해 주세요.'));
         } catch (e) { toast(e.message, true); }
         btn.disabled = false;
       } },
       el('h3', {}, '내 신청 확인하기'),
+      el('p', { class: 'meta', style: 'margin:-8px 0 12px' }, '팀 신청은 팀원 이름으로도 확인할 수 있어요.'),
       el('div', { class: 'fgrid' },
-        el('label', {}, '이름', el('input', { name: 'name', required: true, maxlength: 20 })),
-        el('label', {}, '휴대폰', el('input', { name: 'phone', required: true, inputmode: 'tel', placeholder: '010-0000-0000' }))),
+        el('label', { class: 'full' }, '이름', el('input', { name: 'name', required: true, maxlength: 20 }))),
       el('div', { class: 'form-end', style: 'margin-top:14px' },
         el('button', { type: 'button', class: 'btn', onclick: () => applyDlg.close() }, '닫기'),
         el('button', { type: 'submit', class: 'btn primary' }, '조회')),
@@ -1166,32 +1242,6 @@
     applyDlg.replaceChildren(form);
     applyDlg.showModal();
   }
-
-  async function openApps(s) {
-    applyDlg.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
-    applyDlg.classList.add('xwide');
-    applyDlg.showModal();
-    try {
-      const rows = await api('adminGetApplications', adminToken, s.no);
-      const cols = [['createdAt', '신청일시'], ['name', '이름'], ['school', '학교'], ['grade', '학년'], ['instrument', '전공'], ['phone', '휴대폰'], ['message', '하고 싶은 말']];
-      const csv = () => {
-        const esc = (v) => `"${String(v || '').replace(/"/g, '""')}"`;
-        const text = [cols.map((c) => c[1]).join(',')].concat(rows.map((r) => cols.map((c) => esc(r[c[0]])).join(','))).join('\r\n');
-        const a = el('a', { href: URL.createObjectURL(new Blob(['\ufeff' + text], { type: 'text/csv' })), download: `${s.no}회_${s.title}_신청자.csv` });
-        document.body.append(a); a.click(); a.remove();
-      };
-      applyDlg.replaceChildren(
-        el('h3', {}, `${ROMAN[s.no]}. ${s.title} 신청자 ${rows.length}명`),
-        rows.length ? el('div', { class: 'tbl-wrap' }, el('table', { class: 'apps' },
-          el('thead', {}, el('tr', {}, cols.map((c) => el('th', {}, c[1])))),
-          el('tbody', {}, rows.map((r) => el('tr', {}, cols.map((c) => el('td', { class: c[0] === 'message' ? 'msg' : '' }, c[0] === 'createdAt' ? fmt(r[c[0]]) : r[c[0]])))))))
-          : el('p', { class: 'meta' }, '아직 신청자가 없습니다.'),
-        el('div', { class: 'form-end', style: 'margin-top:16px' },
-          rows.length ? el('button', { class: 'btn', onclick: csv }, '엑셀(CSV) 내려받기') : el('span'),
-          el('button', { class: 'btn primary', onclick: () => applyDlg.close() }, '닫기')));
-    } catch (e) { applyDlg.close(); handleErr(e); }
-  }
-  applyDlg.addEventListener('close', () => applyDlg.classList.remove('xwide'));
 
   /* ───── 상세 + 댓글 ───── */
   async function showPost(id, data, focusComment, fromPop) {
