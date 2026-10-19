@@ -178,6 +178,7 @@
   .sc .boxes label:has(input:checked) { border-color: var(--teal); background: var(--teal-soft); }
   .sc .boxes input { accent-color: var(--teal); margin: 0; }
   .sc .scope { font-size: 13px; color: var(--teal-deep); background: var(--teal-soft); border-radius: 4px; padding: 6px 10px; }
+  .sc .scope.warn { color: #A42836; background: #FCE3E5; font-weight: 600; }
   .sc.changed { border-color: var(--coral); }
   .preview { margin-top: 24px; }
   .preview h4 { font-family: var(--head); font-size: 15px; margin: 0 0 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -792,7 +793,12 @@
     return board.sessions.filter((s) => s.no === base || s.applyMode === 'team' || (board.teams || []).some((t) => t.session === s.no));
   };
 
-  const sameEns = (a, b) => String(a || '').replace(/\s/g, '') === String(b || '').replace(/\s/g, '');
+  // 편성·팀 이름 비교: 게시판과 같은 규칙 (괄호·공백 무시, &·+·/ 는 같은 기호로 봄)
+  const normEns = (x) => String(x || '').replace(/[(（][^)）]*[)）]/g, '').replace(/\s+/g, '')
+    .replace(/[&＆+＋·・‧∙/／]/g, '&').toLowerCase();
+  const normTeam = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
+  const sameEns = (a, b) => normEns(a) === normEns(b);
+  const sameTeam = (a, b) => normTeam(a) === normTeam(b);
   const ensOf = (x) => (x.ensembles && x.ensembles.length ? x.ensembles : String(x.ensemble || '').split(/[,，]/).map((e) => e.trim()).filter(Boolean));
 
   // 회차별 지정곡: 전용 곡이 없으면(팀 신청 회차) 1회차 곡을 이어받음
@@ -840,16 +846,21 @@
       const scope = el('div', { class: 'scope' });
       const teamBox = el('div', { class: 'boxes' });
       const describe = () => {
+        const hit = teams.filter((t) => (!e.ensembles.length || e.ensembles.some((x) => sameEns(x, t.ensemble)))
+          && (!e.teams.length || e.teams.some((n) => sameTeam(n, t.team))));
         const who = e.teams.length ? e.teams.join(', ') : (e.ensembles.length ? `${e.ensembles.join(', ')} 전체 팀` : '모든 편성의 모든 팀');
-        scope.textContent = `${s.no}회 · ${who}에 지정곡으로 적용`;
+        scope.className = 'scope' + (hit.length ? '' : ' warn');
+        scope.replaceChildren(hit.length
+          ? `${s.no}회 · ${who}에 지정곡으로 적용 (${hit.length}팀: ${hit.map((t) => t.team).join(', ')})`
+          : `${s.no}회의 어느 팀에도 적용되지 않아요. 이 회차 편성: ${[...new Set(teams.map((t) => t.ensemble))].join(' / ') || '팀 편성 없음'}`);
       };
       const drawTeams = () => {
         const cand = teams.filter((t) => !e.ensembles.length || e.ensembles.some((x) => sameEns(x, t.ensemble))).map((t) => t.team);
-        const missing = e.teams.filter((x) => !cand.includes(x));   // 이 회차 편성에 없는 팀 (이어받은 곡에서 생길 수 있음)
+        const missing = e.teams.filter((x) => !cand.some((n) => sameTeam(n, x)));   // 이 회차 편성에 없는 팀
         teamBox.replaceChildren(...cand.map((name) => {
-          const c = el('input', { type: 'checkbox', checked: e.teams.includes(name) });
+          const c = el('input', { type: 'checkbox', checked: e.teams.some((x) => sameTeam(x, name)) });
           c.addEventListener('change', () => {
-            e.teams = c.checked ? e.teams.concat(name) : e.teams.filter((x) => x !== name);
+            e.teams = c.checked ? e.teams.concat(name) : e.teams.filter((x) => !sameTeam(x, name));
             markDirty(card); describe(); });
           return el('label', {}, c, name);
         }), ...missing.map((name) => el('label', { title: '이 회차 편성에 없는 팀', style: 'opacity:.6;text-decoration:line-through' }, name)));
@@ -916,7 +927,7 @@
     const out = String(t.fixedSong || '').split(/\n/).map((x) => x.trim()).filter(Boolean);
     songsOfSession(no).filter((x) => x.song
         && (!ensOf(x).length || ensOf(x).some((e) => sameEns(e, t.ensemble)))
-        && (!(x.teams || []).length || x.teams.includes(t.team)))
+        && (!(x.teams || []).length || x.teams.some((n) => sameTeam(n, t.team))))
       .forEach((x) => { if (!out.includes(x.song)) out.push(x.song); });
     return out;
   }
