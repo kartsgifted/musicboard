@@ -151,8 +151,9 @@
   table.tedit th:nth-child(1) { width: 15%; } table.tedit th:nth-child(2) { width: 13%; } table.tedit th:nth-child(3) { width: 34%; }
   table.tedit th:nth-child(4) { width: 30%; } table.tedit th:nth-child(5) { width: 8%; }
   table.tedit td { padding: 6px; vertical-align: top; }
-  table.tedit.nosong th:nth-child(1) { width: 17%; } table.tedit.nosong th:nth-child(2) { width: 14%; } table.tedit.nosong th:nth-child(3) { width: 45%; }
-  table.tedit.nosong th:nth-child(4) { width: 16%; } table.tedit.nosong th:nth-child(5) { width: 8%; }
+  table.tedit.song th:nth-child(1) { width: 13%; } table.tedit.song th:nth-child(2) { width: 11%; } table.tedit.song th:nth-child(3) { width: 27%; }
+  table.tedit.song th:nth-child(4) { width: 34%; } table.tedit.song th:nth-child(5) { width: 8%; } table.tedit.song th:nth-child(6) { width: 7%; }
+  .from-tab { font-size: 12px; color: var(--teal); margin-top: 4px; line-height: 1.5; }
   table.tedit.wish th:nth-child(1) { width: 13%; } table.tedit.wish th:nth-child(2) { width: 11%; } table.tedit.wish th:nth-child(3) { width: 30%; }
   table.tedit.wish th:nth-child(4) { width: 25%; } table.tedit.wish th:nth-child(5) { width: 14%; } table.tedit.wish th:nth-child(6) { width: 7%; }
   table.tedit textarea { width: 100%; padding: 7px 9px; font-size: 14px; border: 1px solid var(--line); border-radius: 4px; resize: vertical; font-family: inherit; line-height: 1.5; }
@@ -687,6 +688,14 @@
    * 1회차 편성이 기본. 3·4회차는 바꿀 필요가 있을 때만 전용 편성을 만들고, 팀마다 지정곡을 넣을 수 있음 */
   const memberText = (t) => t.members.map((m) => m.name + (m.part ? `(${m.part})` : '')).join(', ');
 
+  // 지정곡 관리 탭에서 이 팀에 걸린 곡 (팀 편성 관리의 지정곡 칸과는 별개로 함께 적용됨)
+  function songsFromTab(no, teamName) {
+    const t = teamsFor(no).find((x) => sameTeam(x.team, teamName)) || { ensemble: '', team: teamName };
+    return songsOfSession(no).filter((x) => x.song
+      && (!ensOf(x).length || ensOf(x).some((e) => sameEns(e, t.ensemble)))
+      && (!(x.teams || []).length || x.teams.some((n) => sameTeam(n, teamName)))).map((x) => x.song);
+  }
+
   function teamsPane() {
     const base = baseTeamSession();
     const list = board.sessions.filter((s) => s.no === base || s.applyMode === 'team' || (board.teams || []).some((t) => t.session === s.no));
@@ -742,13 +751,17 @@
       el('td', {}, inp(row, 'ensemble', '예: 피아노 듀오', { list: 'ensOpts' })),
       el('td', {}, inp(row, 'team', '예: 듀오 1팀')),
       el('td', {}, inp(row, 'members', '이름(악기), 이름(악기)')),
-      isWish ? el('td', {}, inp(row, 'selectedSong', '10/5 곡 선정 후 입력')) : null,
+      isWish ? el('td', {}, inp(row, 'selectedSong', '10/5 곡 선정 후 입력'))
+             : el('td', {}, area(row, 'fixedSong', '이 팀의 지정곡 (여러 곡이면 한 줄에 한 곡)'),
+                 songsFromTab(s.no, row.team).length
+                   ? el('div', { class: 'from-tab' }, '지정곡 관리에서: ' + songsFromTab(s.no, row.team).join(' / ')) : null),
       el('td', {}, chk(row)),
       el('td', {}, el('button', { class: 'btn sm danger', title: '이 팀 빼기', onclick: () => {
         teamDraft.splice(idx, 1); teamDirty = true; render(); } }, '빼기'))));
 
-    const table = el('div', { class: 'tbl-wrap' }, el('table', { class: 'tedit ' + (isWish ? 'wish' : 'nosong') },
-      el('thead', {}, el('tr', {}, (isWish ? ['편성', '팀 이름', '구성원', '확정곡', '희망곡 선택', ''] : ['편성', '팀 이름', '구성원', '희망곡 선택', '']).map((x) => el('th', {}, x)))),
+    const table = el('div', { class: 'tbl-wrap' }, el('table', { class: 'tedit ' + (isWish ? 'wish' : 'song') },
+      el('thead', {}, el('tr', {}, (isWish ? ['편성', '팀 이름', '구성원', '확정곡', '희망곡 선택', '']
+                                           : ['편성', '팀 이름', '구성원', '지정곡', '희망곡 선택', '']).map((x) => el('th', {}, x)))),
       el('tbody', {}, rows)), dl);
 
     const bar = el('div', { class: 'editbar' },
@@ -765,7 +778,7 @@
         `팀 이름이 겹칩니다: ${dupNames.join(', ')} — 지정곡을 팀별로 지정하거나 신청을 팀별로 구분하려면 "바이올린 1팀 / 2팀"처럼 서로 다른 이름으로 바꿔 주세요.`) : null,
       inherited ? el('p', { class: 'note' }, `지금은 ${base}회차 편성을 그대로 보여주고 있어요. 구성을 바꾸거나 지정곡을 넣고 저장하면 ${s.no}회차 전용 편성이 만들어지고, ${base}회차 편성은 그대로 남습니다.`) : null,
       isWish ? el('p', { class: 'note' }, '1회차에서 팀 이름을 바꾸면, 이미 입력된 희망곡과의 연결이 끊어져요. 확정곡을 넣으면 학생 화면의 팀 카드에 확정곡으로 표시됩니다.')
-             : el('p', { class: 'note' }, '지정곡은 "지정곡 관리" 탭에서 곡을 기준으로 회차·편성·팀을 정해 넣어요.'),
+             : el('p', { class: 'note' }, '지정곡은 팀마다 이 표에서 바로 적으면 됩니다. 여러 곡이면 한 줄에 한 곡씩 적어 주세요. 같은 곡을 여러 팀에 한꺼번에 지정할 때만 "지정곡 관리" 탭을 쓰고, 거기서 걸린 곡은 칸 아래에 파란 글씨로 표시됩니다.'),
       el('p', { class: 'note' }, '"희망곡 선택"을 체크한 팀은 신청 화면의 지정곡 드롭다운에 "기타" 항목이 보여서, 지정곡 외에 팀원이 원하는 곡을 직접 입력할 수 있어요. 체크를 풀면 지정곡 중에서만 고를 수 있습니다.'),
       el('p', { class: 'note' }, '구성원은 쉼표로 구분하고, 악기는 괄호 안에 적어 주세요. 예: 김OO(피아노), 이OO(바이올린)'));
 
@@ -922,7 +935,7 @@
 
     const notes = el('div', {},
       inherited ? el('p', { class: 'note' }, `지금은 ${base}회차 지정곡을 그대로 쓰고 있어요. ${base}회차 지정곡을 고치면 이 회차에도 함께 반영됩니다. 이 회차만 다르게 하려면 곡을 고치고 저장하세요. ${s.no}회차 전용 지정곡이 만들어지고 ${base}회차 지정곡은 그대로 남습니다.`) : null,
-      el('p', { class: 'note' }, '곡을 적고 그 곡을 쓸 편성과 팀을 체크하세요. 편성은 여러 개 고를 수 있어요. 팀을 고르지 않으면 체크한 편성의 모든 팀, 편성을 하나도 체크하지 않으면 이 회차의 모든 팀에 적용됩니다.'));
+      el('p', { class: 'note' }, '이 탭은 같은 곡을 여러 팀에 한꺼번에 지정할 때 씁니다. 팀마다 곡이 다르면 "팀 편성 관리" 탭의 지정곡 칸에 바로 적는 쪽이 간단해요. 곡을 적고 그 곡을 쓸 편성과 팀을 체크하세요. 편성은 여러 개 고를 수 있어요. 팀을 고르지 않으면 체크한 편성의 모든 팀, 편성을 하나도 체크하지 않으면 이 회차의 모든 팀에 적용됩니다.'));
 
     return [el('div', { class: 'tools' }, chips), state,
       el('div', { class: 'songcards' }, cards.length ? cards : el('div', { class: 'empty' }, '등록된 지정곡이 없습니다.')),
