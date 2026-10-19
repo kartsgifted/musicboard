@@ -802,8 +802,11 @@
   const normEns = (x) => String(x || '').replace(/[(（][^)）]*[)）]/g, '').replace(/\s+/g, '')
     .replace(/[&＆+＋·・‧∙/／]/g, '&').toLowerCase();
   const normTeam = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
-  const sameEns = (a, b) => normEns(a) === normEns(b);
-  const sameTeam = (a, b) => normTeam(a) === normTeam(b);
+  // 통째로 비교하고, 안 맞으면 쉼표로 나눠서도 비교 (예전에 여러 값을 쉼표로 이어 저장한 것과 호환)
+  const eqBy = (norm) => (a, b) => norm(a) === norm(b)
+    || String(a).split(/[,，]/).some((p) => p.trim() && norm(p) === norm(b));
+  const sameEns = eqBy(normEns);
+  const sameTeam = eqBy(normTeam);
   const ensOf = (x) => (x.ensembles && x.ensembles.length ? x.ensembles : String(x.ensemble || '').split('|').map((e) => e.trim()).filter(Boolean));
 
   // 회차별 지정곡: 전용 곡이 없으면(팀 신청 회차) 1회차 곡을 이어받음
@@ -861,14 +864,13 @@
       };
       const drawTeams = () => {
         const cand = teams.filter((t) => !e.ensembles.length || e.ensembles.some((x) => sameEns(x, t.ensemble))).map((t) => t.team);
-        const missing = e.teams.filter((x) => !cand.some((n) => sameTeam(n, x)));   // 이 회차 편성에 없는 팀
         teamBox.replaceChildren(...cand.map((name) => {
           const c = el('input', { type: 'checkbox', checked: e.teams.some((x) => sameTeam(x, name)) });
           c.addEventListener('change', () => {
             e.teams = c.checked ? e.teams.concat(name) : e.teams.filter((x) => !sameTeam(x, name));
             markDirty(card); describe(); });
           return el('label', {}, c, name);
-        }), ...missing.map((name) => el('label', { title: '이 회차 편성에 없는 팀', style: 'opacity:.6;text-decoration:line-through' }, name)));
+        }));
         describe();
       };
       const songIn = el('input', { value: e.song, placeholder: '예: F. Poulenc, Sonata for 1Piano 4Hands', maxlength: 300 });
