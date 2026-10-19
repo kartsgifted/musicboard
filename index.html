@@ -406,6 +406,31 @@
   .topnav .where-now { font-size: 14px; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .home-link { cursor: pointer; }
 
+  /* 레슨 시간표 */
+  .lesson-find { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .lesson-find input { flex: 1; min-width: 160px; max-width: 260px; }
+  .lesson-find .hint { font-size: 14px; color: var(--muted); }
+  .mine { background: var(--teal-deep); color: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 18px; }
+  .mine .who { font-size: 14px; opacity: .8; }
+  .mine .t { font-family: var(--head); font-weight: 800; font-size: clamp(24px, 5vw, 32px); line-height: 1.2; margin: 2px 0 4px; }
+  .mine .t small { font-family: var(--sans); font-weight: 600; font-size: 16px; opacity: .9; margin-left: 8px; }
+  .mine .s { font-size: 15px; opacity: .92; }
+  .lgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .lcard { background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .lcard-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 11px 16px; background: var(--teal-deep); color: #fff; }
+  .lcard-top b { font-family: var(--head); font-weight: 700; font-size: 16px; }
+  .lcard-top span { font-size: 13px; opacity: .85; white-space: nowrap; }
+  .lrow { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 4px 12px; padding: 11px 16px; border-top: 1px solid var(--line); }
+  .lrow:first-of-type { border-top: 0; }
+  .lrow .tm { font-family: var(--head); font-weight: 700; font-size: 15px; color: var(--teal-deep); }
+  .lrow .nm { font-weight: 600; }
+  .lrow .sg { grid-column: 2; font-size: 14px; color: var(--muted); line-height: 1.5; }
+  .lrow .nt { grid-column: 2; font-size: 13px; color: var(--coral); }
+  .lrow.hit { background: var(--teal-soft); }
+  .lrow.hit .nm { color: var(--teal-deep); }
+  .lrow.hit .nm::after { content: '내 시간'; font-family: var(--head); font-size: 11px; font-weight: 700; background: var(--coral); color: #fff; border-radius: 2px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+  .lcard.dim { opacity: .55; }
+
   .next { background: var(--ivory); border-radius: 6px; padding: 20px 22px; }
   .next .lbl { font-size: 14px; font-weight: 700; color: var(--teal); margin: 0 0 4px; }
   .next .what { font-family: var(--head); font-weight: 700; font-size: 18px; margin: 0; }
@@ -802,6 +827,10 @@
     // 희망곡 작성 기간에는 버튼을 눌러야 팀이 보이고, 기간 밖에는 팀 편성을 바로 보여줌
     const teamSec = teams.length && !wishOpen ? renderTeams(s, teams) : null;
 
+    // 레슨 시간표 (lessons 시트에 이 회차 배정이 있을 때)
+    const lessons = (board.lessons || []).filter((x) => x.session === s.no);
+    const lessonSec = lessons.length ? renderLessons(s, lessons) : null;
+
     // 2) 공지 · 안내
     const adminBar = adminToken ? el('div', { class: 'admin-bar' },
       el('button', { class: 'btn primary', onclick: () => showEditor(null, s.no) }, '이 회차에 글쓰기'),
@@ -858,8 +887,63 @@
     return el('div', { class: 'panel', role: 'tabpanel', 'aria-label': `${s.no}회 ${s.title}` },
       el('section', {}, el('h3', {}, '진행 순서'), steps),
       teamSec,
+      lessonSec,
       el('section', {}, el('h3', {}, '공지 · 안내', el('span', { class: 'cnt' }, `${posts.length}건`)), adminBar, list),
       el('section', {}, el('h3', {}, st.key === 'apply' ? '지금 할 일' : '다음 일정'), next));
+  }
+
+  /* ───── 레슨 시간표 ─────
+   * 이름을 넣으면 본인 시간이 위에 크게 뜨고, 아래 표에서도 그 줄만 강조됨 */
+  const bareName = (x) => String(x || '').replace(/[(（].*$/, '').replace(/\s/g, '');
+  let lessonQuery = '';
+
+  function renderLessons(s, lessons) {
+    const groups = [];
+    lessons.forEach((x) => {
+      let g = groups.find((y) => y.group === x.group && y.room === x.room);
+      if (!g) groups.push(g = { group: x.group, room: x.room, rows: [] });
+      g.rows.push(x);
+    });
+    groups.forEach((g) => g.rows.sort((a, b) => String(a.time).localeCompare(String(b.time))));
+
+    const q = bareName(lessonQuery);
+    const hits = q ? lessons.filter((x) => bareName(x.name) === q) : [];
+    const box = el('div');
+
+    const input = el('input', { type: 'search', placeholder: '이름을 입력하세요', value: lessonQuery, maxlength: 20, 'aria-label': '내 시간 찾기' });
+    input.addEventListener('input', () => {
+      lessonQuery = input.value;
+      const pos = input.selectionStart;
+      renderHome();
+      const n = document.querySelector('.lesson-find input');
+      if (n) { n.focus(); n.setSelectionRange(pos, pos); }
+    });
+    box.append(el('div', { class: 'lesson-find' }, input,
+      el('span', { class: 'hint' }, q && !hits.length ? '그 이름으로 배정된 시간이 없어요.' : '내 시간 찾기')));
+
+    hits.forEach((x) => {
+      const g = groups.find((y) => y.rows.includes(x));
+      box.append(el('div', { class: 'mine' },
+        el('div', { class: 'who' }, x.name),
+        el('div', { class: 't' }, x.time || '시간 미정', el('small', {}, [g && g.room, mdw(s.date)].filter(Boolean).join(' · '))),
+        el('div', { class: 's' }, [g && g.group, x.song].filter(Boolean).join(' · ') || null),
+        x.note ? el('div', { class: 's' }, x.note) : null));
+    });
+
+    box.append(el('div', { class: 'lgrid' }, groups.map((g) => {
+      const dim = hits.length && !g.rows.some((r) => hits.includes(r));
+      return el('div', { class: 'lcard' + (dim ? ' dim' : '') },
+        el('div', { class: 'lcard-top' }, el('b', {}, g.group || '레슨'), g.room ? el('span', {}, g.room) : null),
+        g.rows.map((r) => el('div', { class: 'lrow' + (hits.includes(r) ? ' hit' : '') },
+          el('span', { class: 'tm' }, r.time || '–'),
+          el('span', { class: 'nm' }, r.name || '–'),
+          r.song ? el('span', { class: 'sg' }, r.song) : null,
+          r.note ? el('span', { class: 'nt' }, r.note) : null)));
+    })));
+
+    return el('section', { class: 'team-block', id: 'lessonSec' },
+      el('h3', {}, '레슨 시간표', el('span', { class: 'cnt' }, `${lessons.length}명 · ${groups.length}개 교실`)),
+      box);
   }
 
   /* ───── 팀 편성 · 희망곡 ───── */
