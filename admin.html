@@ -607,8 +607,7 @@
     const team = s.applyMode === 'team';
     const unit = team ? '팀' : '명';
     const all = apps.filter((a) => a.session === s.no);
-    const q = appQuery.trim();
-    const list = q ? all.filter((a) => [a.name, a.team, a.ensemble, a.members, a.song].some((v) => String(v || '').includes(q))) : all;
+    const match = (q) => (q ? all.filter((a) => [a.name, a.team, a.ensemble, a.members, a.song].some((v) => String(v || '').includes(q))) : all);
     const yes = all.filter((a) => a.attend === '참여');
     const no = all.filter((a) => a.attend === '불참');
     const d = (x) => (x ? x.slice(5).replace('-', '/') : '');
@@ -618,7 +617,14 @@
         `${x.no}회 ${x.title}`, el('span', { class: 'n' }, String(apps.filter((a) => a.session === x.no).length)))));
 
     const search = el('input', { class: 'search', type: 'search', placeholder: team ? '신청자·팀·팀원·곡 검색' : '이름·곡 검색', value: appQuery });
-    search.addEventListener('input', () => { appQuery = search.value; const pos = search.selectionStart; render(); const n = document.querySelector('.search'); n.focus(); n.setSelectionRange(pos, pos); });
+    // 검색은 표만 다시 그림 (화면 전체를 다시 그리면 한글 입력이 끊김)
+    const tableWrap = el('div');
+    const drawTable = () => tableWrap.replaceChildren(buildTable(match(appQuery.trim())));
+    let composing = false;
+    search.addEventListener('compositionstart', () => { composing = true; });
+    search.addEventListener('compositionend', () => { composing = false; appQuery = search.value; drawTable(); });
+    search.addEventListener('input', () => { appQuery = search.value; if (!composing) drawTable(); });
+    search.addEventListener('search', () => { appQuery = search.value; drawTable(); });
 
     const header = team ? ['번호', '접수 시각', '신청자', '실내악 편성', '팀', '팀원', '참여 여부', '레슨 곡목']
                         : ['번호', '접수 시각', '이름', '참여 여부', '레슨 곡목'];
@@ -654,7 +660,7 @@
             el('div', { class: 'big' }, String(yes.filter((a) => a.song).length), el('small', {}, ` / ${yes.length}명`)),
             el('div', { class: 'sub' }, '참여 학생 중 곡목을 적은 인원')));
 
-    const table = list.length ? el('div', { class: 'tbl-wrap' }, el('table', {},
+    const buildTable = (list) => list.length ? el('div', { class: 'tbl-wrap' }, el('table', {},
       el('thead', {}, el('tr', {}, header.concat(['']).map((x) => el('th', {}, x)))),
       el('tbody', {}, list.map((a) => {
         const i = all.indexOf(a);
@@ -668,9 +674,10 @@
              el('td', { class: 'nw' }, att), el('td', { class: 'msg' }, a.song || '–')];
         return el('tr', {}, ...cells, el('td', {}, el('button', { class: 'btn sm danger', onclick: () => cancelApp(a) }, '신청 취소')));
       }))))
-      : el('div', { class: 'empty' }, q ? '검색 결과가 없습니다.' : '아직 신청이 없습니다.');
+      : el('div', { class: 'empty' }, appQuery.trim() ? '검색 결과가 없습니다.' : '아직 신청이 없습니다.');
+    drawTable();
 
-    return [tools, summary, table];
+    return [tools, summary, tableWrap];
   }
 
   /* ───── 4. 팀 편성 관리 ─────
