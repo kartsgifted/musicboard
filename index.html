@@ -962,7 +962,10 @@
 
   /* ───── 팀 편성 · 희망곡 ───── */
   // 편성 이름 비교: 띄어쓰기와 괄호 속 인원 표기는 무시 (예: '피아노 트리오(1)' = '피아노트리오')
-  const normEns = (x) => String(x || '').replace(/\(.*?\)|（.*?）/g, '').replace(/\s/g, '');
+  // 편성·팀 이름 비교: 괄호 안 내용과 공백을 지우고, &·+·/ 같은 구분 기호를 같은 것으로 봄
+  const normEns = (x) => String(x || '').replace(/[(（][^)）]*[)）]/g, '').replace(/\s+/g, '')
+    .replace(/[&＆+＋·・‧∙/／]/g, '&').toLowerCase();
+  const normTeam = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
   // 회차별 지정곡: 그 회차 행이 있으면 그대로, 없으면(팀 신청 회차) 1회차 지정곡을 이어받음
   function songsOfSession(no) {
     const own = (board.songs || []).filter((x) => x.session === no);
@@ -984,7 +987,7 @@
     String(t.fixedSong || '').split(/\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => out.push({ song: x, detail: '' }));
     songsOfSession(s.no).filter((x) => x.song
         && ensMatch(x, t)
-        && (!(x.teams || []).length || x.teams.includes(t.team)))
+        && (!(x.teams || []).length || x.teams.some((n) => normTeam(n) === normTeam(t.team))))
       .forEach((x) => { if (!out.some((o) => o.song === x.song)) out.push({ song: x.song, detail: isFixedRow(x) ? '' : x.detail }); });
     return out;
   }
