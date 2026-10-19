@@ -977,6 +977,8 @@
     if (own.length) return own;
     const s = board.sessions.find((x) => x.no === no);
     if (!s || s.applyMode !== 'team') return [];
+    // 그 회차 전용 팀 편성이 생겼으면 기본 회차의 지정곡은 더 이상 이어받지 않음 (팀에 적은 곡이 기준)
+    if ((board.teams || []).some((t) => t.session === no)) return [];
     const base = baseTeamSession();
     return (board.songs || []).filter((x) => x.session === base);
   }
