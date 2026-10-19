@@ -339,7 +339,9 @@
     const s = board.sessions.find((x) => x.no === no);
     if (!s || s.applyMode !== 'team') return [];
     return (board.teams || []).filter((t) => t.session === baseTeamSession())
-      .map((t) => Object.assign({}, t, { session: no, fixedSong: '', selectedSong: '', wishes: [], inherited: true }));
+      // 1회차 확정곡은 이어받는 회차의 지정곡으로 씀 (게시판과 같은 규칙)
+      .map((t) => Object.assign({}, t, { session: no, fixedSong: t.selectedSong || t.fixedSong || '',
+        selectedSong: '', wishes: [], inherited: true }));
   }
 
   /* ───── 로그인 ───── */
@@ -757,7 +759,10 @@
       teamDirty ? el('button', { class: 'btn', onclick: () => { teamDraft = null; render(); } }, '변경 취소') : null,
       el('button', { class: 'btn primary', onclick: () => saveTeams(s, inherited) }, inherited ? `${s.no}회차 전용 편성으로 저장` : '저장'));
 
+    const dupNames = [...new Set(teamDraft.map((r) => r.team.trim()).filter((x, i, arr) => x && arr.indexOf(x) !== arr.lastIndexOf(x)))];
     const notes = el('div', {},
+      dupNames.length ? el('p', { class: 'note', style: 'color:#A42836;font-weight:600' },
+        `팀 이름이 겹칩니다: ${dupNames.join(', ')} — 지정곡을 팀별로 지정하거나 신청을 팀별로 구분하려면 "바이올린 1팀 / 2팀"처럼 서로 다른 이름으로 바꿔 주세요.`) : null,
       inherited ? el('p', { class: 'note' }, `지금은 ${base}회차 편성을 그대로 보여주고 있어요. 구성을 바꾸거나 지정곡을 넣고 저장하면 ${s.no}회차 전용 편성이 만들어지고, ${base}회차 편성은 그대로 남습니다.`) : null,
       isWish ? el('p', { class: 'note' }, '1회차에서 팀 이름을 바꾸면, 이미 입력된 희망곡과의 연결이 끊어져요. 확정곡을 넣으면 학생 화면의 팀 카드에 확정곡으로 표시됩니다.')
              : el('p', { class: 'note' }, '지정곡은 "지정곡 관리" 탭에서 곡을 기준으로 회차·편성·팀을 정해 넣어요.'),
@@ -799,7 +804,7 @@
   const normTeam = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
   const sameEns = (a, b) => normEns(a) === normEns(b);
   const sameTeam = (a, b) => normTeam(a) === normTeam(b);
-  const ensOf = (x) => (x.ensembles && x.ensembles.length ? x.ensembles : String(x.ensemble || '').split(/[,，]/).map((e) => e.trim()).filter(Boolean));
+  const ensOf = (x) => (x.ensembles && x.ensembles.length ? x.ensembles : String(x.ensemble || '').split('|').map((e) => e.trim()).filter(Boolean));
 
   // 회차별 지정곡: 전용 곡이 없으면(팀 신청 회차) 1회차 곡을 이어받음
   function songsOfSession(no) {
