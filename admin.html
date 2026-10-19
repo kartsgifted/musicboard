@@ -185,6 +185,22 @@
   .preview td ul { margin: 0; padding-left: 16px; }
   @media (max-width: 900px) { .sc-row1, .sc-row2 { grid-template-columns: 1fr; } }
 
+  /* 레슨 시간표 관리 */
+  .lgrp { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 14px; background: #fff; overflow: hidden; }
+  .lgrp-top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 10px; align-items: end; padding: 12px 16px; background: var(--ivory); border-bottom: 1px solid var(--line); }
+  .lgrp-top .fl input { background: #fff; }
+  table.ltbl { table-layout: fixed; min-width: 700px; }
+  table.ltbl th:nth-child(1) { width: 12%; } table.ltbl th:nth-child(2) { width: 20%; }
+  table.ltbl th:nth-child(3) { width: 40%; } table.ltbl th:nth-child(4) { width: 20%; } table.ltbl th:nth-child(5) { width: 8%; }
+  table.ltbl td { padding: 5px 6px; }
+  table.ltbl input, table.ltbl select { width: 100%; padding: 6px 8px; font-size: 14px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+  .lgrp-foot { padding: 10px 16px; display: flex; gap: 8px; align-items: center; }
+  .lgrp-foot .sp { flex: 1; }
+  dialog#dlg { border: 0; border-top: 4px solid var(--teal); border-radius: 8px; padding: 24px; width: min(720px, 94vw); max-height: 88vh; overflow: auto; }
+  dialog#dlg::backdrop { background: rgba(33, 35, 38, .5); }
+  dialog#dlg h3 { margin: 0 0 6px; font-family: var(--head); font-size: 19px; }
+  .paste-box { width: 100%; min-height: 120px; border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.6; }
+
   /* 일정 관리 */
   .sched { display: grid; gap: 16px; }
   .scard { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -248,6 +264,7 @@
 </header>
 
 <div id="app" class="wrap"></div>
+<dialog id="dlg" aria-label="입력 창"></dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -261,9 +278,11 @@
   let teamSession = null, teamDraft = null, teamDirty = false;   // 팀 편성 관리
   let sched = null, schedDirty = false;                            // 일정 관리
   let songDraft = null, songDirty = false, songView = null;         // 지정곡 관리
+  let lessonView = null, lessonDraft = null, lessonDirty = false;   // 레슨 시간표
 
   const $ = (s) => document.querySelector(s);
   const app = $('#app');
+  const dlg = $('#dlg');
 
   async function api(action, ...args) {
     let res;
@@ -352,7 +371,7 @@
     app.replaceChildren(el('div', { class: 'loading' }, '불러오는 중…'));
     try {
       [board, apps] = await Promise.all([api('getBoard'), api('adminGetApplications', token, 0)]);
-      teamDraft = null; teamDirty = false; sched = null; schedDirty = false; songDraft = null; songDirty = false;
+      teamDraft = null; teamDirty = false; sched = null; schedDirty = false; songDraft = null; songDirty = false; lessonDraft = null; lessonDirty = false;
       const formSessions = board.sessions.filter((s) => s.applyType === 'form');
       if (!appSession || !formSessions.some((s) => s.no === appSession)) appSession = formSessions[0] ? formSessions[0].no : null;
       render();
@@ -387,20 +406,23 @@
           el('div', {}, el('b', {}, String(apps.filter((a) => a.session === s.no).length)), el('span', {}, `${s.no}회`)))),
         el('div', { class: 'l' }, el('b', {}, '참가 신청'), '회차별 인원')));
 
-    const tabDefs = [['posts', '전체 글 관리', posts.length], ['wishes', '희망곡 현황', allNames.size ? `${wishNames.size}/${allNames.size}` : ''], ['apps', '참가 신청', apps.length], ['teams', '팀 편성 관리', ''], ['songs', '지정곡 관리', (board.songs || []).filter((x) => x.song).length ? String(new Set((board.songs || []).filter((x) => x.song).map((x) => x.song)).size) : ''], ['sched', '일정 관리', '']];
+    const tabDefs = [['posts', '전체 글 관리', posts.length], ['wishes', '희망곡 현황', allNames.size ? `${wishNames.size}/${allNames.size}` : ''], ['apps', '참가 신청', apps.length], ['teams', '팀 편성 관리', ''], ['songs', '지정곡 관리', (board.songs || []).filter((x) => x.song).length ? String(new Set((board.songs || []).filter((x) => x.song).map((x) => x.song)).size) : ''],
+      ['lessons', '레슨 시간표', (board.lessons || []).length ? String((board.lessons || []).length) : ''], ['sched', '일정 관리', '']];
     const tabs = el('div', { class: 'tabs', role: 'tablist' }, tabDefs.map(([k, label, n]) =>
       el('button', { class: 'tab', role: 'tab', 'aria-selected': String(tab === k), onclick: () => {
         if (tab === 'teams' && k !== 'teams' && teamDirty && !confirm('저장하지 않은 팀 편성 변경이 있습니다. 이동할까요?')) return;
         if (tab === 'sched' && k !== 'sched' && schedDirty && !confirm('저장하지 않은 일정 변경이 있습니다. 이동할까요?')) return;
         if (tab === 'songs' && k !== 'songs' && songDirty && !confirm('저장하지 않은 지정곡 변경이 있습니다. 이동할까요?')) return;
+        if (tab === 'lessons' && k !== 'lessons' && lessonDirty && !confirm('저장하지 않은 시간표 변경이 있습니다. 이동할까요?')) return;
         if (k !== 'songs') { songDraft = null; songDirty = false; }
+        if (k !== 'lessons') { lessonDraft = null; lessonDirty = false; }
         if (k !== 'teams') { teamDraft = null; teamDirty = false; }
         if (k !== 'sched') { sched = null; schedDirty = false; }
         tab = k; render(); } },
         label, n !== '' ? el('span', { class: 'n' }, String(n)) : null)));
 
     const pane = el('section', { class: 'pane', role: 'tabpanel' },
-      tab === 'posts' ? postsPane() : tab === 'wishes' ? wishesPane() : tab === 'teams' ? teamsPane() : tab === 'songs' ? songsPane() : tab === 'sched' ? schedPane() : appsPane());
+      tab === 'posts' ? postsPane() : tab === 'wishes' ? wishesPane() : tab === 'teams' ? teamsPane() : tab === 'songs' ? songsPane() : tab === 'lessons' ? lessonsPane() : tab === 'sched' ? schedPane() : appsPane());
 
     app.replaceChildren(el('main', {}, stats, tabs, pane));
   }
@@ -754,7 +776,7 @@
     catch (e) { fail(e); }
   }
 
-  window.addEventListener('beforeunload', (e) => { if (teamDirty || schedDirty || songDirty) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', (e) => { if (teamDirty || schedDirty || songDirty || lessonDirty) { e.preventDefault(); e.returnValue = ''; } });
 
   /* ───── 6. 지정곡 관리 ─────
    * 곡을 기준으로 회차(여러 개 가능) · 편성(전체 또는 하나) · 팀(선택 안 하면 그 편성 전체)을 정함 */
@@ -907,6 +929,184 @@
     if (!confirm(`${s.no}회차 전용 지정곡을 지우고 ${base}회차 지정곡을 그대로 쓸까요?`)) return;
     try { board.songs = await api('adminResetSongs', token, s.no); songDraft = null; songDirty = false; render(); toast(`${base}회차 지정곡으로 되돌렸습니다.`); }
     catch (e) { fail(e); }
+  }
+
+  /* ───── 7. 레슨 시간표 ─────
+   * 회차 × 교수(교실) × 시간대. 신청자 명단에서 학생을 고르면 레슨 곡목이 함께 채워짐 */
+  function lessonsPane() {
+    const sessions = board.sessions;
+    if (!sessions.some((s) => s.no === lessonView)) {
+      const withLesson = sessions.find((s) => (board.lessons || []).some((x) => x.session === s.no));
+      lessonView = (withLesson || sessions.find((s) => s.applyType === 'form') || sessions[0]).no;
+    }
+    const s = sessions.find((x) => x.no === lessonView);
+    if (!lessonDraft) {
+      const mine = (board.lessons || []).filter((x) => x.session === s.no);
+      const gs = [];
+      mine.forEach((x) => {
+        let g = gs.find((y) => y.group === x.group && y.room === x.room);
+        if (!g) gs.push(g = { group: x.group, room: x.room, rows: [] });
+        g.rows.push({ time: x.time, name: x.name, song: x.song, note: x.note });
+      });
+      gs.forEach((g) => g.rows.sort((a, b) => String(a.time).localeCompare(String(b.time))));
+      lessonDraft = gs;
+      lessonDirty = false;
+    }
+    const applicants = apps.filter((a) => a.session === s.no && a.attend === '참여');
+    const markDirty = () => { if (!lessonDirty) { lessonDirty = true; const d = document.querySelector('.lessonbar .dirty'); if (d) d.hidden = false; } };
+    const bind = (obj, key, node, after) => {
+      node.addEventListener(node.tagName === 'SELECT' ? 'change' : 'input', () => { obj[key] = node.value; node.classList.add('changed'); markDirty(); if (after) after(); });
+      return node;
+    };
+
+    const chips = el('div', { class: 'chips' }, sessions.map((x) => {
+      const n = (board.lessons || []).filter((r) => r.session === x.no).length;
+      return el('button', { class: 'chip', 'aria-pressed': String(x.no === s.no), onclick: () => {
+        if (lessonDirty && !confirm('저장하지 않은 변경이 있습니다. 다른 회차로 이동할까요?')) return;
+        lessonView = x.no; lessonDraft = null; render(); } }, `${x.no}회 ${x.title}`, n ? el('span', { class: 'n' }, `${n}명`) : null);
+    }));
+
+    const cards = lessonDraft.map((g, gi) => {
+      const rows = g.rows.map((r) => {
+        const nameIn = el('input', { value: r.name || '', placeholder: '학생 이름', maxlength: 40, list: applicants.length ? 'applicantNames' : null });
+        const songIn = el('input', { value: r.song || '', placeholder: '레슨 곡목', maxlength: 300 });
+        bind(r, 'name', nameIn, () => {
+          // 신청자 명단에 있는 이름이면 신청할 때 적은 곡목을 채움
+          const hit = applicants.find((a) => a.name === r.name.replace(/[(（].*$/, '').trim());
+          if (hit && hit.song && !songIn.value) { r.song = hit.song; songIn.value = hit.song; }
+        });
+        return el('tr', {},
+          el('td', {}, bind(r, 'time', el('input', { value: r.time || '', placeholder: '14:50', maxlength: 20 }))),
+          el('td', {}, nameIn),
+          el('td', {}, songIn),
+          el('td', {}, bind(r, 'note', el('input', { value: r.note || '', placeholder: '비고 (선택)', maxlength: 200 }))),
+          el('td', {}, el('button', { class: 'btn sm danger', onclick: () => { g.rows.splice(g.rows.indexOf(r), 1); lessonDirty = true; render(); } }, '빼기')));
+      });
+      return el('section', { class: 'lgrp' },
+        el('div', { class: 'lgrp-top' },
+          el('label', { class: 'fl' }, '교수 · 파트', bind(g, 'group', el('input', { value: g.group || '', placeholder: '예: (피)정지영교수님', maxlength: 60 }))),
+          el('label', { class: 'fl' }, '교실', bind(g, 'room', el('input', { value: g.room || '', placeholder: '예: 321호', maxlength: 40 }))),
+          el('button', { class: 'btn sm danger', onclick: () => {
+            if (g.rows.length && !confirm(`"${g.group || '이 교실'}"을 통째로 뺄까요?`)) return;
+            lessonDraft.splice(gi, 1); lessonDirty = true; render(); } }, '교실 삭제')),
+        el('div', { class: 'tbl-wrap' }, el('table', { class: 'ltbl' },
+          el('thead', {}, el('tr', {}, ['시간', '학생', '레슨 곡목', '비고', ''].map((x) => el('th', {}, x)))),
+          el('tbody', {}, rows.length ? rows : el('tr', {}, el('td', { colspan: 5, style: 'color:var(--muted)' }, '배정된 학생이 없습니다.')))),
+        ),
+        el('div', { class: 'lgrp-foot' },
+          el('button', { class: 'btn sm', onclick: () => {
+            const last = g.rows[g.rows.length - 1];
+            g.rows.push({ time: nextTime(last && last.time), name: '', song: '', note: '' });
+            lessonDirty = true; render(); } }, '+ 시간 추가'),
+          el('span', { class: 'sp' }),
+          el('span', { class: 'sub' }, `${g.rows.length}명`)));
+    });
+
+    const bar = el('div', { class: 'editbar lessonbar' },
+      el('button', { class: 'btn', onclick: () => {
+        lessonDraft.push({ group: '', room: '', rows: [{ time: '', name: '', song: '', note: '' }] }); lessonDirty = true; render();
+        requestAnimationFrame(() => { const c = document.querySelectorAll('.lgrp'); c[c.length - 1]?.querySelector('input')?.focus(); }); } }, '+ 교실(교수) 추가'),
+      el('button', { class: 'btn', onclick: () => openPaste(s) }, '표 붙여넣기로 한 번에 입력'),
+      el('span', { class: 'dirty', hidden: !lessonDirty }, '저장하지 않은 변경이 있어요'),
+      el('span', { class: 'sp' }),
+      lessonDraft.length ? el('button', { class: 'btn', onclick: () => copyLessonHtml(s) }, '공지글용 표 복사') : null,
+      lessonDirty ? el('button', { class: 'btn', onclick: () => { lessonDraft = null; render(); } }, '변경 취소') : null,
+      el('button', { class: 'btn primary', onclick: () => saveLessons(s) }, '시간표 저장'));
+
+    const dl = el('datalist', { id: 'applicantNames' }, applicants.map((a) => el('option', { value: a.name })));
+    const note = el('p', { class: 'note', style: 'margin:0 0 14px' },
+      '저장하면 게시판의 해당 회차 화면에 시간표가 나오고, 학생은 이름을 넣어 자기 시간을 찾을 수 있어요. 학생 이름 칸은 신청자 명단에서 고를 수 있고, 고르면 신청할 때 적은 곡목이 자동으로 채워집니다.');
+
+    return [el('div', { class: 'tools' }, chips), note, dl,
+      lessonDraft.length ? el('div', {}, cards) : el('div', { class: 'empty' }, '아직 시간표가 없습니다. 아래에서 교실을 추가하거나 표를 붙여넣으세요.'),
+      bar];
+  }
+
+  // 마지막 시간 + 40분
+  function nextTime(t) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim());
+    if (!m) return '';
+    const v = (+m[1]) * 60 + (+m[2]) + 40;
+    return `${String(Math.floor(v / 60) % 24).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+  }
+
+  // 한글/엑셀 표를 그대로 붙여넣어 한 번에 입력
+  function openPaste(s) {
+    const ta = el('textarea', { class: 'paste-box', placeholder: '교수\t교실\n14:50\t김OO(초4)\tMozart Sonata...\n15:30\t박OO(초5)\t...' });
+    const form = el('form', { onsubmit: (ev) => {
+        ev.preventDefault();
+        const groups = parsePasted(ta.value);
+        if (!groups.length) { toast('표를 알아보지 못했어요. 형식을 확인해 주세요.', true); return; }
+        const n = groups.reduce((a, g) => a + g.rows.length, 0);
+        if (!confirm(`교실 ${groups.length}개 · 학생 ${n}명을 불러옵니다. 지금 화면의 내용은 대체됩니다.`)) return;
+        lessonDraft = groups; lessonDirty = true; dlg.close(); render(); toast(`${n}명을 불러왔습니다. 확인 후 저장하세요.`);
+      } },
+      el('h3', {}, '표 붙여넣기'),
+      el('p', { class: 'sub', style: 'margin:-6px 0 12px' }, '한글·엑셀의 시간표를 그대로 복사해 붙여넣으세요. "시간 / 이름 / 곡목" 순서로 읽고, 시간이 없는 줄은 교수·교실 정보로 봅니다.'),
+      ta,
+      el('div', { class: 'editbar', style: 'margin-top:12px' }, el('span', { class: 'sp' }),
+        el('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, '취소'),
+        el('button', { type: 'submit', class: 'btn primary' }, '불러오기')));
+    dlg.replaceChildren(form);
+    dlg.showModal();
+    ta.focus();
+  }
+
+  function parsePasted(text) {
+    const HEAD = /^(등록시간|시간|성명|이름|학생|곡목|레슨곡|비고|구분)$/;
+    const groups = [];
+    let cur = null;
+    String(text || '').split(/\r?\n/).forEach((line) => {
+      const cells = line.split(/\t|\s{2,}|\s*\|\s*/).map((x) => x.trim()).filter((x) => x && !HEAD.test(x));
+      if (!cells.length) return;
+      const ti = cells.findIndex((c) => /^\d{1,2}:\d{2}$/.test(c));
+      if (ti >= 0) {
+        // 시간이 있는 줄 = 한 명의 배정
+        if (!cur) groups.push(cur = { group: '', room: '', rows: [] });
+        const rest = cells.filter((c, i) => i !== ti);
+        cur.rows.push({ time: cells[ti], name: rest[0] || '', song: rest.slice(1).join(' ') || '', note: '' });
+        return;
+      }
+      const room = cells.find((c) => /^[\w가-힣-]{1,10}호$/.test(c)) || '';
+      const prof = cells.find((c) => /교수|선생|강사/.test(c)) || '';
+      if (room || prof) {
+        // 교수·교실 줄: 바로 앞 그룹이 아직 비어 있으면 그 그룹을 채움
+        if (cur && !cur.rows.length) { cur.group = cur.group || prof || cells[0]; cur.room = cur.room || room; return; }
+        groups.push(cur = { group: prof || cells.find((c) => c !== room) || '', room, rows: [] });
+        return;
+      }
+      // 그 밖의 줄: 바로 앞 배정의 곡목으로 이어 붙임 (한글 표에서 곡목이 아랫줄에 오는 형태)
+      if (cur && cur.rows.length) {
+        const last = cur.rows[cur.rows.length - 1];
+        last.song = (last.song ? last.song + ' ' : '') + cells.join(' ');
+      } else groups.push(cur = { group: cells.join(' '), room: '', rows: [] });
+    });
+    return groups.filter((g) => g.rows.length);
+  }
+
+  // 공지글 본문에 붙여넣을 수 있는 표 HTML
+  function copyLessonHtml(s) {
+    const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const html = lessonDraft.map((g) => `<h3>${esc(g.group)}${g.room ? ` · ${esc(g.room)}` : ''}</h3>`
+      + '<ul>' + g.rows.map((r) => `<li>${esc(r.time)} ${esc(r.name)}${r.song ? ` — ${esc(r.song)}` : ''}${r.note ? ` (${esc(r.note)})` : ''}</li>`).join('') + '</ul>').join('');
+    const plain = lessonDraft.map((g) => `${g.group} ${g.room}\n` + g.rows.map((r) => `${r.time} ${r.name} ${r.song}`).join('\n')).join('\n\n');
+    const done = () => toast('복사했습니다. 글쓰기 화면 본문에 붙여넣으세요.');
+    try {
+      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' }) })]).then(done, () => navigator.clipboard.writeText(plain).then(done));
+      } else navigator.clipboard.writeText(plain).then(done);
+    } catch (e) { toast('복사하지 못했습니다.', true); }
+  }
+
+  async function saveLessons(s) {
+    const rows = [];
+    lessonDraft.forEach((g) => g.rows.forEach((r) => rows.push({ group: g.group, room: g.room, time: r.time, name: r.name, song: r.song, note: r.note })));
+    try {
+      board.lessons = await api('adminSaveLessons', token, s.no, rows);
+      lessonDraft = null; lessonDirty = false; render(); toast(`${s.no}회차 시간표를 저장했습니다.`);
+    } catch (e) { fail(e); }
   }
 
   /* ───── 5. 일정 관리 ─────
