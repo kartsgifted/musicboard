@@ -906,44 +906,58 @@
     });
     groups.forEach((g) => g.rows.sort((a, b) => String(a.time).localeCompare(String(b.time))));
 
-    const q = bareName(lessonQuery);
-    const hits = q ? lessons.filter((x) => bareName(x.name) === q) : [];
-    const box = el('div');
-
     const input = el('input', { type: 'search', placeholder: '이름을 입력하세요', value: lessonQuery, maxlength: 20, 'aria-label': '내 시간 찾기' });
-    input.addEventListener('input', () => {
-      lessonQuery = input.value;
-      const pos = input.selectionStart;
-      renderHome();
-      const n = document.querySelector('.lesson-find input');
-      if (n) { n.focus(); n.setSelectionRange(pos, pos); }
-    });
-    box.append(el('div', { class: 'lesson-find' }, input,
-      el('span', { class: 'hint' }, q && !hits.length ? '그 이름으로 배정된 시간이 없어요.' : '내 시간 찾기')));
+    const hint = el('span', { class: 'hint' });
+    const mineBox = el('div');
+    const cards = [];   // { el, rows: [{ el, lesson }], group }
 
-    hits.forEach((x) => {
-      const g = groups.find((y) => y.rows.includes(x));
-      box.append(el('div', { class: 'mine' },
-        el('div', { class: 'who' }, x.name),
-        el('div', { class: 't' }, x.time || '시간 미정', el('small', {}, [g && g.room, mdw(s.date)].filter(Boolean).join(' · '))),
-        el('div', { class: 's' }, [g && g.group, x.song].filter(Boolean).join(' · ') || null),
-        x.note ? el('div', { class: 's' }, x.note) : null));
-    });
-
-    box.append(el('div', { class: 'lgrid' }, groups.map((g) => {
-      const dim = hits.length && !g.rows.some((r) => hits.includes(r));
-      return el('div', { class: 'lcard' + (dim ? ' dim' : '') },
+    const grid = el('div', { class: 'lgrid' }, groups.map((g) => {
+      const rowEls = g.rows.map((r) => ({ lesson: r, el: el('div', { class: 'lrow' },
+        el('span', { class: 'tm' }, r.time || '–'),
+        el('span', { class: 'nm' }, r.name || '–'),
+        r.song ? el('span', { class: 'sg' }, r.song) : null,
+        r.note ? el('span', { class: 'nt' }, r.note) : null) }));
+      const card = el('div', { class: 'lcard' },
         el('div', { class: 'lcard-top' }, el('b', {}, g.group || '레슨'), g.room ? el('span', {}, g.room) : null),
-        g.rows.map((r) => el('div', { class: 'lrow' + (hits.includes(r) ? ' hit' : '') },
-          el('span', { class: 'tm' }, r.time || '–'),
-          el('span', { class: 'nm' }, r.name || '–'),
-          r.song ? el('span', { class: 'sg' }, r.song) : null,
-          r.note ? el('span', { class: 'nt' }, r.note) : null)));
-    })));
+        rowEls.map((x) => x.el));
+      cards.push({ el: card, rows: rowEls, group: g });
+      return card;
+    }));
+
+    // 입력칸은 그대로 두고 결과만 바꿔 그림 (화면을 다시 그리면 한글 입력이 끊김)
+    function applyQuery() {
+      const q = bareName(input.value);
+      const hits = q ? lessons.filter((x) => bareName(x.name) === q) : [];
+      hint.textContent = q && !hits.length ? '그 이름으로 배정된 시간이 없어요.' : '내 시간 찾기';
+      mineBox.replaceChildren(...hits.map((x) => {
+        const g = groups.find((y) => y.rows.includes(x));
+        return el('div', { class: 'mine' },
+          el('div', { class: 'who' }, x.name),
+          el('div', { class: 't' }, x.time || '시간 미정', el('small', {}, [g && g.room, mdw(s.date)].filter(Boolean).join(' · '))),
+          el('div', { class: 's' }, [g && g.group, x.song].filter(Boolean).join(' · ') || null),
+          x.note ? el('div', { class: 's' }, x.note) : null);
+      }));
+      cards.forEach((c) => {
+        let any = false;
+        c.rows.forEach((r) => {
+          const hit = hits.includes(r.lesson);
+          r.el.classList.toggle('hit', hit);
+          if (hit) any = true;
+        });
+        c.el.classList.toggle('dim', hits.length > 0 && !any);
+      });
+    }
+    // 한글 입력 중(조합 중)에는 건드리지 않음
+    let composing = false;
+    input.addEventListener('compositionstart', () => { composing = true; });
+    input.addEventListener('compositionend', () => { composing = false; lessonQuery = input.value; applyQuery(); });
+    input.addEventListener('input', () => { lessonQuery = input.value; if (!composing) applyQuery(); });
+    input.addEventListener('search', () => { lessonQuery = input.value; applyQuery(); });
+    applyQuery();
 
     return el('section', { class: 'team-block', id: 'lessonSec' },
       el('h3', {}, '레슨 시간표', el('span', { class: 'cnt' }, `${lessons.length}명 · ${groups.length}개 교실`)),
-      box);
+      el('div', { class: 'lesson-find' }, input, hint), mineBox, grid);
   }
 
   /* ───── 팀 편성 · 희망곡 ───── */
